@@ -767,7 +767,7 @@ plotPalatiniContours = ContourPlot[
 
 Show[
   plotBackground[4.0],
-  plotSigmaRegionsRAR,
+  plotSigmaRegionsRARNoBulge,
   plotPalatiniCurves,
   plotPalatiniContours
 ]
@@ -796,6 +796,32 @@ VVmodel[R_, gal_] := R kpc aNewt[R, gal]/(1 - E^-Sqrt[RealAbs[aNewt[R, gal]]/a0]
   {}, 
   \[CapitalDelta]VVmodel[rn rmax[gal], gal] / \[CapitalDelta]VVmodel[rmax[gal], gal]
 ];
+
+
+a0 = 1;
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRAR,
+  Plot[
+    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1}, 
+    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
+  ]
+]
+
+Export["plotdeltaVmonda01.pdf", %];
+
+
+a0 = 10^-15;
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRAR,
+  Plot[
+    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1},  
+    PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
+  ]
+]
+
+Export["plotdeltaVmonda015.pdf", %];
 
 
 a0 = 1.2 10^-13;
@@ -889,6 +915,32 @@ list1\[Delta]VVMondExp[rni_] = Block[
 
 
 
+a0 = 1;
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRARNoBulge,
+  Plot[
+    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
+    PlotStyle -> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
+  ]
+]
+
+Export["plotdeltaVmondExpa01.pdf", %];
+
+
+a0 = 10^-15;
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRARNoBulge,
+  Plot[
+    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
+    PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
+  ]
+]
+
+Export["plotdeltaVmondExpa015.pdf", %];
+
+
 a0 = 1.2 10^-13;
 Clear @ list2\[Delta]VVmodel;
 list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]VVMondExp[rn, gal]}, {rn, RandomReal[1,70]}];
@@ -915,7 +967,7 @@ plotMondContours = ContourPlot[
 
 Show[
   plotBackground[1.5],
-  plotSigmaRegionsRAR,
+  plotSigmaRegionsRARNoBulge,
   plotMondCurves,
   plotMondContours
 ]
@@ -979,7 +1031,7 @@ plotRGGRContours = ContourPlot[
 
 Show[
   plotBackground[2.0],
-  plotSigmaRegionsRAR,
+  plotSigmaRegionsRARNoBulge,
   plotRGGRCurves,
   plotRGGRContours
 ]
@@ -1036,23 +1088,27 @@ efficiencyNAVtotal[ModelSigmaL1_, ModelSigmaU1_, ModelSigmaL2_, ModelSigmaU2_] :
 ) / 2;
 
 
-(* ContourPlots with the limiting sigma regions *)
+(* ContourPlots with the limiting sigma regions WITHOUT BULGE *)
 Clear[plotObsSigma, plotRGGRSigma, plotMONDRawSigma, plotPalatiniSigma, plotMONDExpSigma];
 plotObsSigma[n_] := plotObsSigma[n] = ContourPlot[
-  PDF[distRARRot, {x,y}] == list1Limits[[n]], {x, 0, 1}, {y, -0.5, 2}
+  PDF[distRARRotNoBulge, {x,y}] == list1LimitsNoBulge[[n]], {x, 0, 1}, {y, -0.5, 2},
+  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
 ];
 plotPalatiniSigma[n_] := plotPalatiniSigma[n] = ContourPlot[
-  PDF[distPalatini, {x,y}] == list1LimitsSigmaPalatini[[n]], {x, 0, 1}, {y, -1, 5}
-  (*PlotPoints \[Rule] 40, MaxRecursion \[Rule] 3, PerformanceGoal \[Rule] "Quality"*)
+  PDF[distPalatini, {x,y}] == list1LimitsSigmaPalatini[[n]], {x, 0, 1}, {y, -1, 5},
+  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
 ];
 plotMONDRawSigma[n_] := plotMONDRawSigma[n] = ContourPlot[
-  PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[n]], {x, 0, 1}, {y, -0.5, 2}
+  PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[n]], {x, 0, 1}, {y, -0.5, 2},
+  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
 ];
 plotMONDExpSigma[n_] := plotMONDExpSigma[n] = ContourPlot[
-  PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[n]], {x, 0, 1}, {y, -0.5, 2}
+  PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[n]], {x, 0, 1}, {y, -0.5, 2},
+  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
 ];
 plotRGGRSigma[n_] := plotRGGRSigma[n] = ContourPlot[
-  PDF[distRGGR, {x,y}] == l1LimitsSigmaRGGR[[n]], {x, 0, 1}, {y, -0.5, 2.5}
+  PDF[distRGGR, {x,y}] == l1LimitsSigmaRGGR[[n]], {x, 0, 1}, {y, -0.5, 2.5},
+  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
 ];
 
 (* General purpose useful function *)
@@ -1089,11 +1145,7 @@ polygonPrepare[listExtractPoints_] := Block[
 Clear[areaSigma];
 areaSigma[plot_Graphics] := Area @ Polygon @ polygonPrepare @ listExtractPoints @ plot;
 
-areaSigma[points_List] := Block[{area1, area2},
-  area1 = Area @ Polygon @ polygonPrepare @ points;
-  area2 = Area @ Polygon @ polygonPrepare[points, Invert -> True];
-  Max[area1, area2]
-];
+areaSigma[points_List] := Area @ Polygon @ polygonPrepare @ points ;
 
 (*Running the plots definitions*)
 Echo["Running the plots..."]; 
@@ -1104,14 +1156,14 @@ EchoTiming @ Table[{plotRGGRSigma[n], plotMONDExpSigma[n], plotMONDRawSigma[n], 
 
 Clear[regionIntersection];
 regionIntersection[plotModelSigma_, nSigma_] := RegionIntersection[
-  Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
-  Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
 ];
 
 Clear[regionDifference];
 regionDifference[plotModelSigma_, nSigma_] := RegionDifference[
-  Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
-  Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
 ];
 
 (* Execution *)
