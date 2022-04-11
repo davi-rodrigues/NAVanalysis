@@ -10,7 +10,8 @@ This code shows in detail all the necessary technical procedures of the followin
 > 
 > *A.Hernandez-Arboleda, D.C. Rodrigues, A.Wojnar*
 > 
-> arXiv:..... 
+> arXiv: [2204.03762](http://arxiv.org/abs/2204.03762)
+
 
 If you use this code, or part of it, please cite the paper above.
 
