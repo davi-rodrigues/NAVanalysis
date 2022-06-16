@@ -28,7 +28,8 @@ globalDataRAR, RotmodDir, Rotdata, colGRad, colGVobs, colG\[Delta]Vobs, colGVgas
 galaxy, galNumbers, distance, galdata, putcolG, gd, hRadlist, normalRadlist, normalVobslist, galdataExt, colGhRad, colGnRad,
 colGnVobs, colGVbar, colGVmiss, colGnVmiss, colGVmissLinear, colGnVmissLinear, colGVmiss2, colGVms2, colGnVmiss2, 
 colG\[Delta]Vms, colGAobs, colGAms, colGnAms galdataRAR, gdR, definedFunctions, silvermanBw, gdRBulgeless, galdataRARBulgeless, 
-Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc};
+Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc, globalDataNfwFixed, globalDataNfwGY,
+headerGlobalDataNfwFixed, headerGlobalDataNfwGY};
 
 Begin["Private`"];
 
@@ -50,6 +51,16 @@ If[Global`isBurkertWithGaussianPriors == True,
 globalData = Drop[TableResults,1];
 headerGlobalData = TableResults[[1]];
 
+Get["NFW-Fixed-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"];
+globalDataNfwFixed = Drop[TableResults,1];
+headerGlobalDataNfwFixed = TableResults[[1]];
+
+Get["NFW-GY-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"];
+globalDataNfwGY = Drop[TableResults,1];
+headerGlobalDataNfwGY = TableResults[[1]];
+
+Clear[TableResults];
+
 (* 
   General purpose constants, from PDG 2011.
   The main unit for distance is kpc. Secondarily, km is also used.
@@ -61,7 +72,7 @@ G0 = 6.67428 10^-11 /(3.08568025 10^19)^3  1.98892 10^30;(* kpc^3 / (Msun \ s^2)
 ckpc = 299792.458 (* km/s *) / kpc; (* kpc / s *)
 
 
-(*Central values for YD and YB, these values should match the imported Burkert-GY file.*)
+(*Central values for YD and YB, these values should match the imported files *)
 YDcentral = 0.5; 
 YBcentral = 0.6;
 

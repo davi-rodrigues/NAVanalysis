@@ -254,8 +254,8 @@ list1InterpCurvesRAR = list1InterpSigmaCurves[plotBlueRAR];
 list1InterpCurvesRARNoBulge = list1InterpSigmaCurves[plotBlueRARNoBulge];
 
  
-Export["sigmaRegionsRAR.csv", exportSigmaList[list1InterpCurvesRAR, 0.025, 1]];
-Export["sigmaRegionsRARNoBulge.csv", exportSigmaList[list1InterpCurvesRARNoBulge, 0.025, 1]];
+(*Export["sigmaRegionsRAR.csv", exportSigmaList[list1InterpCurvesRAR, 0.025, 1]];
+Export["sigmaRegionsRARNoBulge.csv", exportSigmaList[list1InterpCurvesRARNoBulge, 0.025, 1]];*)
 
 
 
@@ -496,6 +496,582 @@ statusHistogram[nSigmas_, rcnLowerLimit_, rcnUpperLimit_]:= Block[{},
 statusHistogram[1, 0, 100];
 
 statusHistogram[2,0,100];
+
+
+\[Rho]nfw[rn_, rsn_, \[Rho]s_] = \[Rho]s/(rn/rsn (1+rn/rsn)^2);
+Mnfw[rn_, rsn_, \[Rho]s_] = 4 \[Pi] Rmax^3  Integrate[\[Rho]nfw[rnprime, rsn, \[Rho]s] rnprime^2, {rnprime, 0, rn}, Assumptions-> {rn>0, rsn>0}];
+
+VVnfw[rn_, rsn_, \[Rho]s_, Rmax_] = (G / Rmax) * Mnfw[rn, rsn, \[Rho]s] / rn;
+
+\[Delta]Vnfw[rn_, rsn_] = FullSimplify[
+  VVnfw[rn, rsn, \[Rho]s, Rmax] / VVnfw[1, rsn, \[Rho]s, Rmax],
+  Assumptions -> {0 < rn < 1, 0 < rsn < 1, 0 < Rmax}
+];
+
+
+plotNFWGrayRed = Show[
+  {
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        \[Delta]Vnfw[rn, 1000], 
+        \[Delta]Vnfw[rn, 0.001]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
+  }
+];
+
+Echo["plotNFWGrayRed:"];
+Print@plotNFWGrayRed;
+
+
+
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rsn_?NumberQ, n\[Sigma]_]:= (*chi2Upper[rcn, n\[Sigma]] =*) NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]Vnfw[rn,rsn])^2, 
+  {rn,rnStart,rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+chi2Lower[rsn_?NumberQ, n\[Sigma]_]:= chi2Lower[rsn, n\[Sigma]] = NIntegrate[
+  (lowerBound[n\[Sigma]][rn]- \[Delta]Vnfw[rn,rsn])^2, 
+  {rn,rnStart,rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing"-> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+
+(* SPECIFIC DEFINITIONS *)
+
+rnStart = 0.01;
+rnEnd=0.99;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+rsnUpper[2] = rsn /. NMinimize[{chi2Upper[rsn,2], rsn > 0}, {rsn, 0, 1}][[2]];
+rsnUpper[1] = rsn /. NMinimize[{chi2Upper[rsn,1], rsn > 0}, {rsn, 0, 1}][[2]];
+rsnLower[2] = rsn /. NMinimize[{chi2Lower[rsn,2], rsn > 0}, {rsn, 10, 1000}][[2]];
+rsnLower[1] = rsn /. NMinimize[{chi2Lower[rsn,1], rsn > 0}, {rsn, 10, 1000}][[2]];
+
+Echo[{rsnUpper[1], rsnLower[1]}, "rsn 1\[Sigma] bounds: "];
+Echo[{rsnUpper[2], rsnLower[2]}, "rsn 2\[Sigma] bounds: "];
+
+plotNFWGlobalBestFit = Show[
+  {
+    plotNFWGrayRed,
+    Plot[
+      {
+        \[Delta]Vnfw[rn, rsnUpper @ 2],
+        \[Delta]Vnfw[rn, rsnUpper @ 1],
+        \[Delta]Vnfw[rn, rsnLower @ 2],
+        \[Delta]Vnfw[rn, rsnLower @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotNFWGlobalBestFit:"];
+Print@plotNFWGlobalBestFit;
+
+Export["plotNFWGlobalBestFit.pdf", plotNFWGlobalBestFit];
+
+
+(*rcn values outside the upper and lower limits are not considered*)
+(*The upper limit is important to eliminate those cases that are essentially infinity,
+these also pose technical difficulties for the kernel density estimation.
+The lower limit may be important since we have droppend all data with rn < 0.2,
+There are galaxies that use the DM profile to do a quick rise of the rotation curve.*)
+
+Clear[statusHistogram, nSigmas, rsnLowerLimit, rsnUpperLimit];
+
+colrs = colrc; (*then col number of rc is the same of rs*)
+
+statusHistogramNfwFixed[nSigmas_, rsnLowerLimit_, rsnUpperLimit_]:= Block[{},
+  Rmax[i_] := Last @ gd[Rad, i];
+  rs[i_] := globalDataNfwFixed[[i, colrs]] ;
+  posExcluded = Position[Table[galdataRAR @ n, {n, 1, 175}], {}];
+  RmaxXrsAll = Table[{Rmax @ i, rs @ i}, {i, 1, 175}];
+  RmaxXrs = Delete[RmaxXrsAll, posExcluded];
+  rsnDataAll =  (Divide @@@ RmaxXrsAll)^-1;
+  rsnData =  (Divide @@@ RmaxXrs)^-1;  (*IMPORTANT INTRODUCED LOG HERE*)
+  histoOptions =   Sequence @@ {
+    Frame -> True, 
+    Axes -> False, 
+    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
+    FrameStyle -> Directive[GrayLevel[0.4], 16],
+    PlotRangeClipping -> True,
+    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
+  };
+  
+  rsnDataWithoutOutliers = Select[rsnData, rsnLowerLimit < # < rsnUpperLimit &]; 
+  dist = SmoothKernelDistribution[
+    rsnDataWithoutOutliers, 
+    silvermanBw[rsnDataWithoutOutliers], 
+    MaxExtraBandwidths -> 0,
+    InterpolationPoints -> 10^4
+  ];
+
+  pdfValuesForContours = Block[
+    {
+      positionAtCdf, oneSigmaProbability, twoSigmaProbability, positionsAtPdf, pdfList,
+      pdfSortList, cdfSortList
+    },
+    oneSigmaProbability = NProbability[Less[-1, x, 1], Distributed[x, NormalDistribution[]]];
+    twoSigmaProbability = NProbability[Less[-2, x, 2], Distributed[x, NormalDistribution[]]];
+    pdfList = Table[
+      PDF[dist, x],
+      {x, 0, 20, 0.01}
+    ];
+    pdfSortList = Reverse @ Sort @ Flatten @ pdfList;
+    cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList] ;
+    positionAtCdf[probability_] := FirstPosition[cdfSortList, p_ /; GreaterEqual[p, probability]];
+    positionsAtPdf = Flatten @ Map[positionAtCdf, {oneSigmaProbability, twoSigmaProbability}];
+    pdfSortList[[positionsAtPdf]]
+  ];
+
+  sigmaContoursPlot = ContourPlot[
+    PDF[dist, x],
+    {x, 0, 20},
+    {y, 0, 2},
+    Contours -> pdfValuesForContours, 
+    PlotRange -> {{0, 20}, All}
+  ];
+
+  sigmaContoursList = Cases[
+    Normal @ FullForm @ First @ sigmaContoursPlot,
+    Line[pts_] :> pts,
+    Infinity
+  ];
+
+  maxPDF = x /. Last @ Maximize[PDF[dist, x], x];
+
+  rsnRootsSigma[i_] := Quiet[
+    FindRoot[
+      PDF[dist, x] == pdfValuesForContours[[i]], #
+    ] & /@ {{x, 0, maxPDF}, {x, maxPDF, 20}},
+    FindRoot::brmp
+  ];
+
+  {rsnLow @ 1, rsnHigh @ 1} = x /. rsnRootsSigma[1];
+  {rsnLow @ 2, rsnHigh @ 2} = x /. Quiet[rsnRootsSigma[2], FindRoot::brmp];
+
+  lines = {
+    Dashed, 
+    Thickness @ 0.004, 
+    Line @ {{rsnUpper @ nSigmas, 0}, { rsnUpper @ nSigmas, 20}},
+    Line @ {{rsnLower @ nSigmas, 0}, {rsnLower @ nSigmas, 20}}
+  };
+
+  lines2= {
+    Red,
+    DotDashed, 
+    Thickness @ 0.004, 
+    Line @ {{rsnLow @ nSigmas, 0}, {rsnLow @ nSigmas, 20}},
+    Line @ {{rsnHigh @ nSigmas, 0}, {rsnHigh @ nSigmas, 20}}
+  };
+
+  rsnDistributionHistogram := Histogram[
+    rsnDataWithoutOutliers,
+    {0.1}, 
+    "PDF", 
+    PlotRange -> {{0, 15}, All},
+    Frame -> True, 
+    Axes -> False, 
+    Epilog -> {lines, lines2}, 
+    histoOptions
+  ];
+
+  Echo[ToString@nSigmas <>"\[Sigma] limits from individual fits:" <> ToString@{rsnLow@nSigmas, rsnHigh@nSigmas}];
+  Echo[ToString@nSigmas <>"\[Sigma] limits from NAV method:" <> ToString@{rsnUpper@nSigmas, rsnLower@nSigmas}];
+  Echo["Lower and upper rcn limits used for the individual Burkert fits: " <> ToString[{rsnLowerLimit, rsnUpperLimit}]];
+  Echo["rcnDistributionHistogram for "<> ToString@nSigmas <>"\[Sigma]:"];
+  Print@Show[{rsnDistributionHistogram, nPlot[PDF[dist, x], {x, 0, 20}, PlotRange -> All]}]
+];
+
+statusHistogramNfwFixed[1, 0, 100];
+
+statusHistogramNfwFixed[2, 0, 100];
+
+
+(*rcn values outside the upper and lower limits are not considered*)
+(*The upper limit is important to eliminate those cases that are essentially infinity,
+these also pose technical difficulties for the kernel density estimation.
+The lower limit may be important since we have droppend all data with rn < 0.2,
+There are galaxies that use the DM profile to do a quick rise of the rotation curve.*)
+
+Clear[statusHistogram, nSigmas, rsnLowerLimit, rsnUpperLimit];
+
+colrs = colrc; (*then col number of rc is the same of rs*)
+
+statusHistogramNfwFixed[nSigmas_, rsnLowerLimit_, rsnUpperLimit_]:= Block[{},
+  Rmax[i_] := Last @ gd[Rad, i];
+  rs[i_] := globalDataNfwGY[[i, colrs]] ;
+  posExcluded = Position[Table[galdataRAR @ n, {n, 1, 175}], {}];
+  RmaxXrsAll = Table[{Rmax @ i, rs @ i}, {i, 1, 175}];
+  RmaxXrs = Delete[RmaxXrsAll, posExcluded];
+  rsnDataAll =  (Divide @@@ RmaxXrsAll)^-1;
+  rsnData =  (Divide @@@ RmaxXrs)^-1;  (*IMPORTANT INTRODUCED LOG HERE*)
+  histoOptions =   Sequence @@ {
+    Frame -> True, 
+    Axes -> False, 
+    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
+    FrameStyle -> Directive[GrayLevel[0.4], 16],
+    PlotRangeClipping -> True,
+    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
+  };
+  
+  rsnDataWithoutOutliers = Select[rsnData, rsnLowerLimit < # < rsnUpperLimit &]; 
+  dist = SmoothKernelDistribution[
+    rsnDataWithoutOutliers, 
+    silvermanBw[rsnDataWithoutOutliers], 
+    MaxExtraBandwidths -> 0,
+    InterpolationPoints -> 10^4
+  ];
+
+  pdfValuesForContours = Block[
+    {
+      positionAtCdf, oneSigmaProbability, twoSigmaProbability, positionsAtPdf, pdfList,
+      pdfSortList, cdfSortList
+    },
+    oneSigmaProbability = NProbability[Less[-1, x, 1], Distributed[x, NormalDistribution[]]];
+    twoSigmaProbability = NProbability[Less[-2, x, 2], Distributed[x, NormalDistribution[]]];
+    pdfList = Table[
+      PDF[dist, x],
+      {x, 0, 20, 0.01}
+    ];
+    pdfSortList = Reverse @ Sort @ Flatten @ pdfList;
+    cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList] ;
+    positionAtCdf[probability_] := FirstPosition[cdfSortList, p_ /; GreaterEqual[p, probability]];
+    positionsAtPdf = Flatten @ Map[positionAtCdf, {oneSigmaProbability, twoSigmaProbability}];
+    pdfSortList[[positionsAtPdf]]
+  ];
+
+  sigmaContoursPlot = ContourPlot[
+    PDF[dist, x],
+    {x, 0, 20},
+    {y, 0, 2},
+    Contours -> pdfValuesForContours, 
+    PlotRange -> {{0, 20}, All}
+  ];
+
+  sigmaContoursList = Cases[
+    Normal @ FullForm @ First @ sigmaContoursPlot,
+    Line[pts_] :> pts,
+    Infinity
+  ];
+
+  maxPDF = x /. Last @ Maximize[PDF[dist, x], x];
+
+  rsnRootsSigma[i_] := Quiet[
+    FindRoot[
+      PDF[dist, x] == pdfValuesForContours[[i]], #
+    ] & /@ {{x, 0, maxPDF}, {x, maxPDF, 20}},
+    FindRoot::brmp
+  ];
+
+  {rsnLow @ 1, rsnHigh @ 1} = x /. rsnRootsSigma[1];
+  {rsnLow @ 2, rsnHigh @ 2} = x /. Quiet[rsnRootsSigma[2], FindRoot::brmp];
+
+  lines = {
+    Dashed, 
+    Thickness @ 0.004, 
+    Line @ {{rsnUpper @ nSigmas, 0}, { rsnUpper @ nSigmas, 20}},
+    Line @ {{rsnLower @ nSigmas, 0}, {rsnLower @ nSigmas, 20}}
+  };
+
+  lines2= {
+    Red,
+    DotDashed, 
+    Thickness @ 0.004, 
+    Line @ {{rsnLow @ nSigmas, 0}, {rsnLow @ nSigmas, 20}},
+    Line @ {{rsnHigh @ nSigmas, 0}, {rsnHigh @ nSigmas, 20}}
+  };
+
+  rsnDistributionHistogram := Histogram[
+    rsnDataWithoutOutliers,
+    {0.1}, 
+    "PDF", 
+    PlotRange -> {{0, 15}, All},
+    Frame -> True, 
+    Axes -> False, 
+    Epilog -> {lines, lines2}, 
+    histoOptions
+  ];
+
+  Echo[ToString@nSigmas <>"\[Sigma] limits from individual fits:" <> ToString@{rsnLow@nSigmas, rsnHigh@nSigmas}];
+  Echo[ToString@nSigmas <>"\[Sigma] limits from NAV method:" <> ToString@{rsnUpper@nSigmas, rsnLower@nSigmas}];
+  Echo["Lower and upper rcn limits used for the individual Burkert fits: " <> ToString[{rsnLowerLimit, rsnUpperLimit}]];
+  Echo["rcnDistributionHistogram for "<> ToString@nSigmas <>"\[Sigma]:"];
+  Print@Show[{rsnDistributionHistogram, nPlot[PDF[dist, x], {x, 0, 20}, PlotRange -> All]}]
+];
+
+statusHistogramNfwFixed[1, 0, 100];
+
+statusHistogramNfwFixed[2, 0, 100];
+
+
+(*rcn values outside the upper and lower limits are not considered*)
+(*The upper limit is important to eliminate those cases that are essentially infinity,
+these also pose technical difficulties for the kernel density estimation.
+The lower limit may be important since we have droppend all data with rn < 0.2,
+There are galaxies that use the DM profile to do a quick rise of the rotation curve.*)
+
+Clear[statusHistogram, nSigmas, rsnLowerLimit, rsnUpperLimit];
+
+colrs = colrc; (*then col number of rc is the same of rs*)
+
+statusHistogramNfwFixed[nSigmas_, rsnLowerLimit_, rsnUpperLimit_]:= Block[{},
+  Rmax[i_] := Last @ gd[Rad, i];
+  rs[i_] := globalDataNfwFixed[[i, colrs]] ;
+  posExcluded = Position[Table[galdataRAR @ n, {n, 1, 175}], {}];
+  RmaxXrsAll = Table[{Rmax @ i, rs @ i}, {i, 1, 175}];
+  RmaxXrs = Delete[RmaxXrsAll, posExcluded];
+  rsnDataAll =  (Divide @@@ RmaxXrsAll)^-1;
+  rsnData =  Log10 @ ((Divide @@@ RmaxXrs)^-1);  (*IMPORTANT INTRODUCED LOG HERE*)
+  histoOptions =   Sequence @@ {
+    Frame -> True, 
+    Axes -> False, 
+    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
+    FrameStyle -> Directive[GrayLevel[0.4], 16],
+    PlotRangeClipping -> True,
+    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
+  };
+  
+  rsnDataWithoutOutliers = Select[rsnData, rsnLowerLimit < # < rsnUpperLimit &]; 
+  dist = SmoothKernelDistribution[
+    rsnDataWithoutOutliers, 
+    silvermanBw[rsnDataWithoutOutliers], 
+    MaxExtraBandwidths -> 0,
+    InterpolationPoints -> 10^4
+  ];
+
+  pdfValuesForContours = Block[
+    {
+      positionAtCdf, oneSigmaProbability, twoSigmaProbability, positionsAtPdf, pdfList,
+      pdfSortList, cdfSortList
+    },
+    oneSigmaProbability = NProbability[Less[-1, x, 1], Distributed[x, NormalDistribution[]]];
+    twoSigmaProbability = NProbability[Less[-2, x, 2], Distributed[x, NormalDistribution[]]];
+    pdfList = Table[
+      PDF[dist, x],
+      {x, -1, 4, 0.01}
+    ];
+    pdfSortList = Reverse @ Sort @ Flatten @ pdfList;
+    cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList] ;
+    positionAtCdf[probability_] := FirstPosition[cdfSortList, p_ /; GreaterEqual[p, probability]];
+    positionsAtPdf = Flatten @ Map[positionAtCdf, {oneSigmaProbability, twoSigmaProbability}];
+    pdfSortList[[positionsAtPdf]]
+  ];
+
+  sigmaContoursPlot = ContourPlot[
+    PDF[dist, x],
+    {x, -1, 4},
+    {y, 0, 2},
+    Contours -> pdfValuesForContours, 
+    PlotRange -> {{-1, 4}, All}
+  ];
+
+  sigmaContoursList = Cases[
+    Normal @ FullForm @ First @ sigmaContoursPlot,
+    Line[pts_] :> pts,
+    Infinity
+  ];
+
+  maxPDF = x /. Last @ Maximize[PDF[dist, x], x];
+
+  rsnRootsSigma[i_] := Quiet[
+    FindRoot[
+      PDF[dist, x] == pdfValuesForContours[[i]], #
+    ] & /@ {{x, -1, maxPDF}, {x, maxPDF, 4}},
+    FindRoot::brmp
+  ];
+
+  {rsnLow @ 1, rsnHigh @ 1} = x /. rsnRootsSigma[1];
+  {rsnLow @ 2, rsnHigh @ 2} = x /. Quiet[rsnRootsSigma[2], FindRoot::brmp];
+
+  lines = {
+    Dashed, 
+    Thickness @ 0.004, 
+    Line @ {{Log10 @ rsnUpper @ nSigmas, 0}, {Log10 @ rsnUpper @ nSigmas, 100}},
+    Line @ {{Log10 @ rsnLower @ nSigmas, 0}, {Log10 @ rsnLower @ nSigmas, 100}}
+  };
+
+  lines2= {
+    Red,
+    DotDashed, 
+    Thickness @ 0.004, 
+    Line @ {{rsnLow @ nSigmas, 0}, {rsnLow @ nSigmas, 100}},
+    Line @ {{rsnHigh @ nSigmas, 0}, {rsnHigh @ nSigmas, 100}}
+  };
+
+  rsnDistributionHistogram := Histogram[
+    rsnDataWithoutOutliers,
+    {0.1}, 
+    "PDF", 
+    PlotRange -> {{-1, 4}, All},
+    Frame -> True, 
+    Axes -> False, 
+    Epilog -> {lines, lines2}, 
+    histoOptions
+  ];
+
+  Echo[ToString@nSigmas <>"\[Sigma] limits from individual fits:" <> ToString@{rsnLow@nSigmas, rsnHigh@nSigmas}];
+  Echo[ToString@nSigmas <>"\[Sigma] limits from NAV method:" <> ToString@{Log10 @ rsnUpper@nSigmas, Log10 @ rsnLower@nSigmas}];
+  Echo["Lower and upper rcn limits used for the individual Burkert fits: " <> ToString[{rsnLowerLimit, rsnUpperLimit}]];
+  Echo["rcnDistributionHistogram for "<> ToString@nSigmas <>"\[Sigma]:"];
+  Print@Show[{rsnDistributionHistogram, nPlot[PDF[dist, x], {x, -1, 4}, PlotRange -> All]}]
+];
+
+statusHistogramNfwFixed[1, -1, 4];
+
+statusHistogramNfwFixed[2,-1, 4];
+
+
+(*rcn values outside the upper and lower limits are not considered*)
+(*The upper limit is important to eliminate those cases that are essentially infinity,
+these also pose technical difficulties for the kernel density estimation.
+The lower limit may be important since we have droppend all data with rn < 0.2,
+There are galaxies that use the DM profile to do a quick rise of the rotation curve.*)
+
+Clear[statusHistogram, nSigmas, rsnLowerLimit, rsnUpperLimit];
+
+colrs = colrc; (*then col number of rc is the same of rs*)
+
+statusHistogramNfwGY[nSigmas_, rsnLowerLimit_, rsnUpperLimit_]:= Block[{},
+  Rmax[i_] := Last @ gd[Rad, i];
+  rs[i_] := globalDataNfwGY[[i, colrs]] ;
+  posExcluded = Position[Table[galdataRAR @ n, {n, 1, 175}], {}];
+  RmaxXrsAll = Table[{Rmax @ i, rs @ i}, {i, 1, 175}];
+  RmaxXrs = Delete[RmaxXrsAll, posExcluded];
+  rsnDataAll =  (Divide @@@ RmaxXrsAll)^-1;
+  rsnData =  Log10 @ ((Divide @@@ RmaxXrs)^-1);  (*IMPORTANT INTRODUCED LOG HERE*)
+  histoOptions =   Sequence @@ {
+    Frame -> True, 
+    Axes -> False, 
+    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
+    FrameStyle -> Directive[GrayLevel[0.4], 16],
+    PlotRangeClipping -> True,
+    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
+  };
+  
+  rsnDataWithoutOutliers = Select[rsnData, rsnLowerLimit < # < rsnUpperLimit &]; 
+  dist = SmoothKernelDistribution[
+    rsnDataWithoutOutliers, 
+    silvermanBw[rsnDataWithoutOutliers], 
+    MaxExtraBandwidths -> 0,
+    InterpolationPoints -> 10^4
+  ];
+
+  pdfValuesForContours = Block[
+    {
+      positionAtCdf, oneSigmaProbability, twoSigmaProbability, positionsAtPdf, pdfList,
+      pdfSortList, cdfSortList
+    },
+    oneSigmaProbability = NProbability[Less[-1, x, 1], Distributed[x, NormalDistribution[]]];
+    twoSigmaProbability = NProbability[Less[-2, x, 2], Distributed[x, NormalDistribution[]]];
+    pdfList = Table[
+      PDF[dist, x],
+      {x, -1, 4, 0.01}
+    ];
+    pdfSortList = Reverse @ Sort @ Flatten @ pdfList;
+    cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList] ;
+    positionAtCdf[probability_] := FirstPosition[cdfSortList, p_ /; GreaterEqual[p, probability]];
+    positionsAtPdf = Flatten @ Map[positionAtCdf, {oneSigmaProbability, twoSigmaProbability}];
+    pdfSortList[[positionsAtPdf]]
+  ];
+
+  sigmaContoursPlot = ContourPlot[
+    PDF[dist, x],
+    {x, -1, 4},
+    {y, 0, 2},
+    Contours -> pdfValuesForContours, 
+    PlotRange -> {{-1, 4}, All}
+  ];
+
+  sigmaContoursList = Cases[
+    Normal @ FullForm @ First @ sigmaContoursPlot,
+    Line[pts_] :> pts,
+    Infinity
+  ];
+
+  maxPDF = x /. Last @ Maximize[PDF[dist, x], x];
+
+  rsnRootsSigma[i_] := Quiet[
+    FindRoot[
+      PDF[dist, x] == pdfValuesForContours[[i]], #
+    ] & /@ {{x, -1, maxPDF}, {x, maxPDF, 4}},
+    FindRoot::brmp
+  ];
+
+  {rsnLow @ 1, rsnHigh @ 1} = x /. rsnRootsSigma[1];
+  {rsnLow @ 2, rsnHigh @ 2} = x /. Quiet[rsnRootsSigma[2], FindRoot::brmp];
+
+  lines = {
+    Dashed, 
+    Thickness @ 0.004, 
+    Line @ {{Log10 @ rsnUpper @ nSigmas, 0}, {Log10 @ rsnUpper @ nSigmas, 100}},
+    Line @ {{Log10 @ rsnLower @ nSigmas, 0}, {Log10 @ rsnLower @ nSigmas, 100}}
+  };
+
+  lines2= {
+    Red,
+    DotDashed, 
+    Thickness @ 0.004, 
+    Line @ {{rsnLow @ nSigmas, 0}, {rsnLow @ nSigmas, 100}},
+    Line @ {{rsnHigh @ nSigmas, 0}, {rsnHigh @ nSigmas, 100}}
+  };
+
+  rsnDistributionHistogram := Histogram[
+    rsnDataWithoutOutliers,
+    {0.1}, 
+    "PDF", 
+    PlotRange -> {{-1, 4}, All},
+    Frame -> True, 
+    Axes -> False, 
+    Epilog -> {lines, lines2}, 
+    histoOptions
+  ];
+
+  Echo[ToString@nSigmas <>"\[Sigma] limits from individual fits:" <> ToString@{rsnLow@nSigmas, rsnHigh@nSigmas}];
+  Echo[ToString@nSigmas <>"\[Sigma] limits from NAV method:" <> ToString@{Log10 @ rsnUpper@nSigmas, Log10 @ rsnLower@nSigmas}];
+  Echo["Lower and upper rcn limits used for the individual Burkert fits: " <> ToString[{rsnLowerLimit, rsnUpperLimit}]];
+  Echo["rcnDistributionHistogram for "<> ToString@nSigmas <>"\[Sigma]:"];
+  Print@Show[{rsnDistributionHistogram, nPlot[PDF[dist, x], {x, -1, 4}, PlotRange -> All]}]
+];
+
+statusHistogramNfwGY[1, -1, 4];
+
+statusHistogramNfwGY[2,-1, 4];
 
 
 Clear[vExp, fitExpVdisk, fitExpVdiskPlot, chi2, associationFitExpVdisk];
