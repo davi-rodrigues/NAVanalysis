@@ -24,6 +24,7 @@ isBurkertWithGaussianPriors = True; (*Loads the Burkert data with Gaussian prior
 SetDirectory @ NotebookDirectory[];
 Needs @ "NAVbaseCode`";
 << "NAVoptions.wl";
+Get["MDC14aux.mx", Path -> "AuxiliaryData"] // Quiet; (*If something goes wrong, this file will be generated*)
 
 SetDirectory @ FileNameJoin[{NotebookDirectory[], "Output"}];
 
@@ -227,6 +228,22 @@ plotSigmaRegions[curvesSigma_, xLimit1_:0.01, xLimit2_:0.99] := Plot[
 
 {plotSigmaRegionsRAR, plotSigmaRegionsRARNoBulge} = plotSigmaRegions[list1InterpSigmaCurves[#]] & /@ {plotBlueRAR, plotBlueRARNoBulge};
 
+plotBackground[upperLimit_] := nPlot[
+  100,
+  {rn, 0, 1},
+  PlotRange -> {{0, 1}, {-0.25, upperLimit}},
+  AspectRatio -> (1 / 1.3),
+  GridLines -> None, 
+  Prolog -> {
+    Dotted,
+    Line @ {{0, 0}, {1, 0}},
+    Gray,
+    Opacity[0.2], 
+    Rectangle[{0.001, -0.5},{0.2, upperLimit}],
+    Rectangle[{0.9, -0.5},{0.999, upperLimit}]
+  }
+];
+
 GraphicsRow[
   {plotSigmaRegionsRAR, plotSigmaRegionsRARNoBulge},
   ImageSize -> 800
@@ -268,23 +285,6 @@ VVbrkt[rn_, rcn_, \[Rho]0_, Rmax_] = (G / Rmax) * Mbrkt[rn, rcn, \[Rho]0] / rn;
   VVbrkt[rn, rcn, \[Rho]0, Rmax] / VVbrkt[1, rcn, \[Rho]0, Rmax],
   Assumptions -> {0 < rn < 1, 0 < rcn < 1, 0 < Rmax}
 ];
-
-plotBackground[upperLimit_] := nPlot[
-  100,
-  {rn, 0, 1},
-  PlotRange -> {{0, 1}, {-0.25, upperLimit}},
-  AspectRatio -> (1 / 1.3),
-  GridLines -> None, 
-  Prolog -> {
-    Dotted,
-    Line @ {{0, 0}, {1, 0}},
-    Gray,
-    Opacity[0.2], 
-    Rectangle[{0.001, -0.5},{0.2, upperLimit}],
-    Rectangle[{0.9, -0.5},{0.999, upperLimit}]
-  }
-];
-
 
 plotBurkertGrayRed = Show[
   {
@@ -1072,6 +1072,184 @@ statusHistogramNfwGY[nSigmas_, rsnLowerLimit_, rsnUpperLimit_]:= Block[{},
 statusHistogramNfwGY[1, -1, 4];
 
 statusHistogramNfwGY[2,-1, 4];
+
+
+Clear[X, \[Rho], \[Alpha],\[Gamma],\[Beta]]
+\[Alpha] = 2.94 - Log10[(10^(X + 2.33))^-1.08 + (10^(X + 2.33))^2.29];
+\[Beta] = 4.23 + 1.34 X + 0.26 X^2;
+\[Gamma] = - 0.06 + Log10[(10^(X + 2.56))^-0.68 + (10^(X+2.56))];
+\[Rho]DC14[rn_, rsn_, \[Rho]s_, X_] = \[Rho]s/((rn/rsn)^\[Gamma] (1+ (rn/rsn)^\[Alpha])^((\[Beta]-\[Gamma])/\[Alpha]));
+
+
+X100min = -410;
+X100max = -130;
+Xmin = X100min/100.;
+Xmax = X100max/100.;
+
+(*Clear[MDC14aux]; *) (*Uncomment this to recompute and export MDC14aux.*)
+If[DownValues@MDC14aux === {}, 
+  SetSharedFunction[MDC14aux];
+  ParallelTable[
+    MDC14aux[rn_, rsn_, \[Rho]s_, X100] = 4 \[Pi] Rmax^3 Integrate[
+      \[Rho]DC14[rnprime, rsn, \[Rho]s, X100 / 100] rnprime^2, {rnprime, 0, rn}, 
+      Assumptions -> {rn > 0, rsn > 0}
+    ], 
+    {X100, X100min, X100max, 1}
+  ];
+  DumpSave["../MDC14aux.mx", MDC14aux]
+];
+
+
+Clear[MDC14, VVDC14, \[Delta]VDC14];
+
+iRound[x_] = IntegerPart[Round[x, 0.01] 100];
+
+MDC14[rn_, rsn_, \[Rho]s_, X_] := MDC14aux[rn, rsn, \[Rho]s, iRound[X]];
+
+VVDC14[rn_, rsn_, \[Rho]s_, X_] := G/(rn Rmax) MDC14[rn, rsn, \[Rho]s, X] ;
+
+\[Delta]VDC14[rn_, rsn_, X_] := \[Delta]VDC14[rn, rsn, X] = Simplify[
+  VVDC14[rn, rsn, \[Rho]s, X]/VVDC14[1, rsn, \[Rho]s, X],
+  Assumptions -> {0 <= rn <= 1,  rsn > 0, Rmax > 0}
+];
+
+
+
+\[Sigma]Silverman = 0.082; (*The vertical KDE "error". This value will not be crucial here, since it is constant.*)
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2/ ( 2 \[Sigma]Silverman^2) ,
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision -> 10, 
+  PrecisionGoal -> 3, 
+  AccuracyGoal -> Infinity, 
+  MaxRecursion -> 10
+];
+
+chi2Lower[rsn_?NumberQ, X_, n\[Sigma]_] := chi2Lower[rsn, X, n\[Sigma]] = NIntegrate[
+  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2/ ( 2 \[Sigma]Silverman^2) , 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision -> 10, 
+  PrecisionGoal -> 3, 
+  AccuracyGoal -> Infinity, 
+  MaxRecursion -> 10
+];
+
+
+(* SPECIFIC DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+ClearAll[rsnUpper, rsnLower];
+rsnUpper[2] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 2], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+rsnUpper[1] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 1], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+rsnLower[2] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 2], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+rsnLower[1] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 1], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+
+{rsnUpperR[2], rsnUpperR[1], rsnLowerR[2], rsnLowerR[1]} = Parallelize[
+  {rsnUpper[2], rsnUpper[1], rsnLower[2], rsnLower[1]}
+];
+
+Echo[{rsnUpperR[1], rsnLowerR[1]}, "{rsn, X} 1\[Sigma] bounds: "];
+Echo[{rsnUpperR[2], rsnLowerR[2]}, "{rsn, X} 2\[Sigma] bounds: "];
+
+
+\[Sigma]Silverman = 0.082; (*The vertical KDE "error". This value will not be crucial here, since it is constant.*)
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2/ ( 2 \[Sigma]Silverman^2) ,
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision -> 10, 
+  PrecisionGoal -> 3, 
+  AccuracyGoal -> Infinity, 
+  MaxRecursion -> 10
+];
+
+chi2Lower[rsn_?NumberQ, X_, n\[Sigma]_] := chi2Lower[rsn, X, n\[Sigma]] = NIntegrate[
+  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2/ ( 2 \[Sigma]Silverman^2) , 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision -> 10, 
+  PrecisionGoal -> 3, 
+  AccuracyGoal -> Infinity, 
+  MaxRecursion -> 10
+];
+
+
+(* SPECIFIC DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+ClearAll[rsnUpper, rsnLower];
+rsnUpper[2] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 2], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+rsnUpper[1] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 1], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+rsnLower[2] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 2], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+rsnLower[1] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 1], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+
+{rsnUpperR[2], rsnUpperR[1], rsnLowerR[2], rsnLowerR[1]} = Parallelize[
+  {rsnUpper[2], rsnUpper[1], rsnLower[2], rsnLower[1]}
+];
+
+Echo[{rsnUpperR[1], rsnLowerR[1]}, "{rsn, X} 1\[Sigma] bounds: "];
+Echo[{rsnUpperR[2], rsnLowerR[2]}, "{rsn, X} 2\[Sigma] bounds: "];
+
+
+plotDC14GlobalBestFit = Show[
+  {
+    plotBurkertGrayRed /. {Dashed -> Dashing[.01], Black -> Red},
+    plotNFWGrayRed /. {Dashed-> DotDashed, Black -> Orange},
+    Plot[
+      {
+        \[Delta]VDC14[rn, Sequence@@ rsnUpperR @ 2],
+        \[Delta]VDC14[rn, Sequence@@ rsnUpperR @ 1],
+        \[Delta]VDC14[rn, Sequence@@ rsnLowerR @ 2],
+        \[Delta]VDC14[rn, Sequence@@ rsnLowerR @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotDC14GlobalBestFit:"];
+Print@plotDC14GlobalBestFit;
+
+Export["plotDC14GlobalBestFit.pdf", plotDC14GlobalBestFit];
 
 
 Clear[vExp, fitExpVdisk, fitExpVdiskPlot, chi2, associationFitExpVdisk];
