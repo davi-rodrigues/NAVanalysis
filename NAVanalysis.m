@@ -276,6 +276,55 @@ Export["sigmaRegionsRARNoBulge.csv", exportSigmaList[list1InterpCurvesRARNoBulge
 
 
 
+\[Delta]Vobs1\[Sigma]L[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[1]][xn]; (*L stands for lower limit*)
+\[Delta]Vobs1\[Sigma]U[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[2]][xn]; (*U stands for upper limit*)
+\[Delta]Vobs2\[Sigma]L[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[3]][xn];
+\[Delta]Vobs2\[Sigma]U[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[4]][xn];
+
+positivePart[x_] := HeavisideTheta[x] x;
+
+Clear[areaObs];
+areaObs[numberOfSigmas_] := Which[
+  numberOfSigmas == 1, NIntegrate[\[Delta]Vobs1\[Sigma]U[xn] - \[Delta]Vobs1\[Sigma]L[xn], {xn, 0.2, 0.9}],
+  numberOfSigmas == 2, NIntegrate[\[Delta]Vobs2\[Sigma]U[xn] - \[Delta]Vobs2\[Sigma]L[xn], {xn, 0.2, 0.9}],
+  True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
+];
+  
+efficiencyNAV[ModelSigmaL_, ModelSigmaU_, numberOfSigmas_Integer] := Block[ (*There is another efficiencyNAV function with different number of arguments.*)
+  {
+    areaIntersection,
+    areaModelOut,
+    xn, (*equivalent to rn, used to avoid definition clash*)
+    \[Delta]VobsL,
+    \[Delta]VobsU
+  },
+  
+  Which[
+    numberOfSigmas == 1, \[Delta]VobsL = \[Delta]Vobs1\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs1\[Sigma]U,
+    numberOfSigmas == 2, \[Delta]VobsL = \[Delta]Vobs2\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs2\[Sigma]U,
+    True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
+  ];
+  
+  areaIntersection = NIntegrate[
+    Min[\[Delta]VobsU[xn], ModelSigmaU[xn]] - Max[\[Delta]VobsL[xn], ModelSigmaL[xn]],
+    {xn, 0.2, 0.9}
+  ] / areaObs[numberOfSigmas];
+  
+  areaModelOut = NIntegrate[
+    positivePart[ModelSigmaU[xn] - \[Delta]VobsU[xn]] + positivePart[\[Delta]VobsL[xn] - ModelSigmaL[xn]],
+    {xn, 0.2, 0.9}
+  ]/ areaObs[numberOfSigmas];
+  
+  {areaIntersection - areaModelOut, areaIntersection, areaModelOut}
+];
+
+Clear @ efficiencyNAVtotal; (*There is another efficiencyNAVtotal function with different number of arguments.*)
+efficiencyNAVtotal[ModelSigmaL1_, ModelSigmaU1_, ModelSigmaL2_, ModelSigmaU2_] := (
+  efficiencyNAV[ModelSigmaL1, ModelSigmaU1, 1] + 
+  efficiencyNAV[ModelSigmaL2, ModelSigmaU2, 2]
+) / 2;
+
+
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
 Mbrkt[rn_, rcn_, \[Rho]0_] = 4 \[Pi] Rmax^3  Integrate[\[Rho]brkt[rnprime,rcn,\[Rho]0] rnprime^2,{rnprime,0,rn}, Assumptions-> {rn>0, rcn>0}];
 
@@ -1250,6 +1299,209 @@ Echo["plotDC14GlobalBestFit:"];
 Print@plotDC14GlobalBestFit;
 
 Export["plotDC14GlobalBestFit.pdf", plotDC14GlobalBestFit];
+
+
+\[Rho]nfw[rn_, rsn_, \[Rho]s_] = \[Rho]s/(rn/rsn (1+rn/rsn)^2);
+
+Mnfw[rn_, rsn_, \[Rho]s_] = 4 \[Pi] Rmax^3  Integrate[\[Rho]nfw[rnprime, rsn, \[Rho]s] rnprime^2, {rnprime, 0, rn}, Assumptions-> {rn>0, rsn>0}];
+
+MSaddnfw[rn_, rsn_, \[Rho]s_] = rn^2 \!\(
+\*SubscriptBox[\(\[PartialD]\), \(rn\)]\(
+\*SubscriptBox[\(\[PartialD]\), \(rn\)]Mnfw[rn, \ rsn, \ \[Rho]s]\)\); (* the effective additional mass*)
+
+MSnfw[rn_, rsn_, \[Rho]s_, \[Gamma]_] = Mnfw[rn, rsn, \[Rho]s] + \[Gamma] MSaddnfw[rn, rsn, \[Rho]s]; (*The total effective halo mass*)
+
+VVSnfw[rn_, rsn_, \[Rho]s_, \[Gamma]_] = G/Rmax MSnfw[rn, rsn, \[Rho]s, \[Gamma]] /rn;
+
+\[Delta]VSnfw[rn_, rsn_, \[Gamma]_] = FullSimplify[
+  VVSnfw[rn, rsn, \[Rho]s, \[Gamma]] / VVSnfw[1, rsn, \[Rho]s, \[Gamma]],
+  Assumptions -> {0 < rn < 1, 0 < rsn < 1, 0 < Rmax}
+];
+
+
+\[Gamma]min = -0.5;
+\[Gamma]max = 1; (*I could have used \[Gamma]max = 2, but it gets far away from the observational data*)
+
+n\[Gamma] = (\[Gamma]max - \[Gamma]min)/0.05 + 1;
+
+plotSNFWGrayRed = Show[
+  {
+    plotBackground[2.0],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        Evaluate@Table[\[Delta]VSnfw[rn, 10, X], {X, \[Gamma]min, \[Gamma]max, 0.05}], 
+        Evaluate@Table[\[Delta]VSnfw[rn, 0.1, X], {X, \[Gamma]min, \[Gamma]max, 0.05}],
+        \[Delta]VSnfw[rn, 0.1, 0],
+        \[Delta]VSnfw[rn, 10, 0]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {Sequence@@Table[{Opacity[0.5], Thickness[0.01], ColorData["Rainbow"][i/n\[Gamma]]}, {i, n\[Gamma]}], Sequence@@Table[{Opacity[0.5], Thickness[0.01], ColorData["Rainbow"][i/n\[Gamma]]}, {i, n\[Gamma]}], {Black}, {Black}}
+    ]
+  }
+]
+
+
+\[Sigma]Silverman = 0.082; (*The vertical KDE "error". This value will not be crucial here, since it is constant.*)
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rsn_?NumberQ, \[Gamma]_, n\[Sigma]_]:= chi2Upper[rsn, \[Gamma], n\[Sigma]] =  NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]VSnfw[rn, rsn, \[Gamma]])^2/ \[Sigma]Silverman^2 ,
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision -> 10, 
+  PrecisionGoal -> 3, 
+  AccuracyGoal -> Infinity, 
+  MaxRecursion -> 10
+];
+
+chi2Lower[rsn_?NumberQ, \[Gamma]_, n\[Sigma]_] := chi2Lower[rsn, \[Gamma], n\[Sigma]] = NIntegrate[
+  (lowerBound[n\[Sigma]][rn]- \[Delta]VSnfw[rn,rsn, \[Gamma]])^2/  \[Sigma]Silverman^2 , 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision -> 10, 
+  PrecisionGoal -> 3, 
+  AccuracyGoal -> Infinity, 
+  MaxRecursion -> 10
+];
+
+
+(* SPECIFIC DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+ClearAll[rsnUpper, rsnLower];
+rsnUpper[2] :=  {rsn, \[Gamma]} /. NMinimize[{chi2Upper[rsn, \[Gamma], 2], 50>rsn>0.1, \[Gamma]min < \[Gamma] < \[Gamma]max}, {rsn, \[Gamma]}][[2]];
+rsnUpper[1] :=  {rsn, \[Gamma]} /. NMinimize[{chi2Upper[rsn, \[Gamma], 1], 50>rsn>0.1, \[Gamma]min < \[Gamma] < \[Gamma]max}, {rsn, \[Gamma]}][[2]];
+rsnLower[2] :=  {rsn, \[Gamma]} /. NMinimize[{chi2Lower[rsn, \[Gamma], 2], 50>rsn>0.1, \[Gamma]min < \[Gamma] < \[Gamma]max}, {rsn, \[Gamma]}][[2]];
+rsnLower[1] :=  {rsn, \[Gamma]} /. NMinimize[{chi2Lower[rsn, \[Gamma], 1], 50>rsn>0.1, \[Gamma]min < \[Gamma] < \[Gamma]max}, {rsn, \[Gamma]}][[2]];
+
+{rsnUpperR[2], rsnUpperR[1], rsnLowerR[2], rsnLowerR[1]} = Parallelize[
+  {rsnUpper[2], rsnUpper[1], rsnLower[2], rsnLower[1]}
+];
+
+Echo[{rsnUpperR[1], rsnLowerR[1]}, "{rsn, \[Gamma]} 1\[Sigma] bounds: "];
+Echo[{rsnUpperR[2], rsnLowerR[2]}, "{rsn, \[Gamma]} 2\[Sigma] bounds: "];
+
+
+plotSnfwGlobalBestFit = Show[
+  {
+    plotBurkertGrayRed /. {Dashed -> Dashing[.01], Black -> Red},
+    plotNFWGrayRed /. {Dashed -> DotDashed, Black -> Orange},
+    Plot[
+      {
+        \[Delta]VSnfw[rn, Sequence@@ rsnUpperR @ 2],
+        \[Delta]VSnfw[rn, Sequence@@ rsnUpperR @ 1],
+        \[Delta]VSnfw[rn, Sequence@@ rsnLowerR @ 2],
+        \[Delta]VSnfw[rn, Sequence@@ rsnLowerR @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotSnfwGlobalBestFit:"];
+Print@plotSnfwGlobalBestFit;
+
+Export["plotSnfwGlobalBestFit.pdf", plotSnfwGlobalBestFit];
+
+
+\[Gamma]best = -0.5;
+
+plotSNFWglobalGammaGrayRed = Show[
+  {
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        \[Delta]VSnfw[rn, 1000, \[Gamma]best], 
+        \[Delta]VSnfw[rn, 0.001, \[Gamma]best]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
+  }
+];
+
+Echo["plotSNFWglobalGammaGrayRed:"];
+Print@plotSNFWglobalGammaGrayRed;
+
+
+
+
+(* SPECIFIC DEFINITIONS *)
+
+rnStart = 0.01;
+rnEnd=0.99;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+rsnUpper[2] = rsn /. NMinimize[{chi2Upper[rsn, \[Gamma]best, 2], rsn > 0}, {rsn, 0, 1}][[2]];
+rsnUpper[1] = rsn /. NMinimize[{chi2Upper[rsn, \[Gamma]best, 1], rsn > 0}, {rsn, 0, 1}][[2]];
+rsnLower[2] = rsn /. NMinimize[{chi2Lower[rsn, \[Gamma]best, 2], rsn > 0}, {rsn, 10, 1000}][[2]];
+rsnLower[1] = rsn /. NMinimize[{chi2Lower[rsn, \[Gamma]best, 1], rsn > 0}, {rsn, 10, 1000}][[2]];
+
+Echo[{rsnUpper[1], rsnLower[1]}, "rsn 1\[Sigma] bounds: "];
+Echo[{rsnUpper[2], rsnLower[2]}, "rsn 2\[Sigma] bounds: "];
+
+plotNFWGlobalGammaBestFit = Show[
+  {
+    plotSNFWglobalGammaGrayRed,
+    Plot[
+      {
+        \[Delta]VSnfw[rn, rsnUpper @ 2, \[Gamma]best],
+        \[Delta]VSnfw[rn, rsnUpper @ 1, \[Gamma]best],
+        \[Delta]VSnfw[rn, rsnLower @ 2, \[Gamma]best],
+        \[Delta]VSnfw[rn, rsnLower @ 1, \[Gamma]best]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotNFWGlobalGammaBestFit:"];
+Print@plotNFWGlobalGammaBestFit;
+
+Export["plotNFWGlobalGammaBestFit.pdf", plotNFWGlobalGammaBestFit];
 
 
 Clear[vExp, fitExpVdisk, fitExpVdiskPlot, chi2, associationFitExpVdisk];
