@@ -1,5 +1,6 @@
 # NAVanalysis
 Normalized Additional Velocity analysis (Release 1.0.1)
+[![DOI](https://zenodo.org/badge/469982786.svg)](https://zenodo.org/badge/latestdoi/469982786)
 
 Code by Davi Rodrigues (UFES) and Alejandro Hernandez-Arboleda (UFES).
 
