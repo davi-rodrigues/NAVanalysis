@@ -1,5 +1,5 @@
 # NAVanalysis
-Normalized Additional Velocity analysis
+Normalized Additional Velocity analysis (Release 1.0.1)
 
 Code by Davi Rodrigues (UFES) and Alejandro Hernandez-Arboleda (UFES).
 
