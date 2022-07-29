@@ -9,6 +9,7 @@
 (*July 2021 - March 2022*)
 (*Version 1.1*)
 
+
 (* 
 Examples of variables names conventions (inspired on the Hungarian convention):
   listDFunctionName :  a list of dimension D .
@@ -29,12 +30,12 @@ galaxy, galNumbers, distance, galdata, putcolG, gd, hRadlist, normalRadlist, nor
 colGnVobs, colGVbar, colGVmiss, colGnVmiss, colGVmissLinear, colGnVmissLinear, colGVmiss2, colGVms2, colGnVmiss2, 
 colG\[Delta]Vms, colGAobs, colGAms, colGnAms galdataRAR, gdR, definedFunctions, silvermanBw, gdRBulgeless, galdataRARBulgeless, 
 Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc, globalDataNfwFixed, globalDataNfwGY,
-headerGlobalDataNfwFixed, headerGlobalDataNfwGY};
+headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positivePart, \[Delta]Vobs1\[Sigma]L, \[Delta]Vobs2\[Sigma]L, \[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal};
 
 Begin["Private`"];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Loading data*)
 
 
@@ -77,7 +78,7 @@ YDcentral = 0.5;
 YBcentral = 0.6;
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*General purpose definitions*)
 
 
@@ -98,7 +99,7 @@ SetAttributes[equal0, Listable];
 equal0[x_] := Equal[x,0];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Global data related definitions*)
 
 
@@ -130,7 +131,7 @@ GalaxiesOutsideRAR = Flatten[(Position[globalData[[All,1]], #] & /@ bad),1];
 globalDataRAR = Delete[globalData,GalaxiesOutsideRAR]; 
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Rotmod data (individual galaxy data)*)
 
 
@@ -153,7 +154,7 @@ colGSBbul = 8;
 
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Individual galaxy functions: all the data come from the Rotmod files*)
 
 
@@ -204,7 +205,7 @@ gd[listcols_]:=Table[gd[listcols, galn], {galn, 175}];
 
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Extended Individual galaxy functions: defines new functions and extend the table output*)
 
 
@@ -382,7 +383,7 @@ gdRBulgeless[listcols_] := gdRBulgeless[listcols] = Table[gdRBulgeless[listcols,
     Select[galdata\[Delta]Vms[i, start, end, Rcut], #[[colGnRad]] > 0.05 &];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Silverman bandwidth definition*)
 (*I am not using the Mathetica's built in version, but they agree.*)
 
@@ -407,8 +408,11 @@ silvermanBw[dataX_?ListQ] := silvermanBw[dataX] = Block[
   k * n^(-1/(d+4)) A
 ];
 
-(* ::Subsection:: *)
+
+
+(* ::Subsection::Closed:: *)
 (*Difines functions to export Burkert results in tsv format*)
+
 
 exportBurkertIndividualResultsGaussian:= Block[
   {dataBurkertFitsExport},
@@ -466,6 +470,63 @@ exportBurkertIndividualResultsFixed:= Block[
   DeleteFile["BurkertFits-05-06-FixedAux.tsv"]
 ];
 
+
+
+(* ::Subsection:: *)
+(*NAV efficiency definition*)
+
+
+(* ::Text:: *)
+(*Version with integration: faster, but only works for NAV curves that are functinos.*)
+
+
+\[Delta]Vobs1\[Sigma]L[xn_] :=  list1InterpSigmaCurves[plotBlueRAR][[1]][xn]; (*L stands for lower limit*)
+\[Delta]Vobs1\[Sigma]U[xn_] :=  list1InterpSigmaCurves[plotBlueRAR][[2]][xn]; (*U stands for upper limit*)
+\[Delta]Vobs2\[Sigma]L[xn_] :=  list1InterpSigmaCurves[plotBlueRAR][[3]][xn];
+\[Delta]Vobs2\[Sigma]U[xn_] :=  list1InterpSigmaCurves[plotBlueRAR][[4]][xn];
+
+positivePart[x_] := HeavisideTheta[x] x;
+
+Clear[areaObs];
+areaObs[numberOfSigmas_] := Which[
+  numberOfSigmas == 1, NIntegrate[\[Delta]Vobs1\[Sigma]U[xn] - \[Delta]Vobs1\[Sigma]L[xn], {xn, 0.2, 0.9}],
+  numberOfSigmas == 2, NIntegrate[\[Delta]Vobs2\[Sigma]U[xn] - \[Delta]Vobs2\[Sigma]L[xn], {xn, 0.2, 0.9}],
+  True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
+];
+  
+efficiencyNAV[ModelSigmaL_, ModelSigmaU_, numberOfSigmas_Integer] := Block[ (*There is another efficiencyNAV function with different number of arguments.*)
+  {
+    areaIntersection,
+    areaModelOut,
+    xn, (*equivalent to rn, used to avoid definition clash*)
+    \[Delta]VobsL,
+    \[Delta]VobsU
+  },
+  
+  Which[
+    numberOfSigmas == 1, \[Delta]VobsL = \[Delta]Vobs1\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs1\[Sigma]U,
+    numberOfSigmas == 2, \[Delta]VobsL = \[Delta]Vobs2\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs2\[Sigma]U,
+    True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
+  ];
+  
+  areaIntersection = NIntegrate[
+    Min[\[Delta]VobsU[xn], ModelSigmaU[xn]] - Max[\[Delta]VobsL[xn], ModelSigmaL[xn]],
+    {xn, 0.2, 0.9}
+  ] / areaObs[numberOfSigmas];
+  
+  areaModelOut = NIntegrate[
+    positivePart[ModelSigmaU[xn] - \[Delta]VobsU[xn]] + positivePart[\[Delta]VobsL[xn] - ModelSigmaL[xn]],
+    {xn, 0.2, 0.9}
+  ]/ areaObs[numberOfSigmas];
+  
+  {areaIntersection - areaModelOut, areaIntersection, areaModelOut}
+];
+
+Clear @ efficiencyNAVtotal; (*There is another efficiencyNAVtotal function with different number of arguments.*)
+efficiencyNAVtotal[ModelSigmaL1_, ModelSigmaU1_, ModelSigmaL2_, ModelSigmaU2_] := (
+  efficiencyNAV[ModelSigmaL1, ModelSigmaU1, 1] + 
+  efficiencyNAV[ModelSigmaL2, ModelSigmaU2, 2]
+) / 2;
 
 
 (* ::Subsection:: *)
