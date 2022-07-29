@@ -1168,7 +1168,7 @@ VVDC14[rn_, rsn_, \[Rho]s_, X_] := G/(rn Rmax) MDC14[rn, rsn, \[Rho]s, X] ;
 
 Clear[chi2Upper, chi2Lower];
 chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NIntegrate[
-  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2/ ( 2 \[Sigma]Silverman^2) ,
+  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2/ \[Sigma]Silverman^2 ,
   {rn, rnStart, rnEnd}, 
   Method-> {Automatic, "SymbolicProcessing" -> 0},
   WorkingPrecision -> 10, 
@@ -1178,7 +1178,7 @@ chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NInteg
 ];
 
 chi2Lower[rsn_?NumberQ, X_, n\[Sigma]_] := chi2Lower[rsn, X, n\[Sigma]] = NIntegrate[
-  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2/ ( 2 \[Sigma]Silverman^2) , 
+  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2/ \[Sigma]Silverman^2 , 
   {rn, rnStart, rnEnd}, 
   Method-> {Automatic, "SymbolicProcessing" -> 0},
   WorkingPrecision -> 10, 
@@ -1221,7 +1221,7 @@ Echo[{rsnUpperR[2], rsnLowerR[2]}, "{rsn, X} 2\[Sigma] bounds: "];
 
 Clear[chi2Upper, chi2Lower];
 chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NIntegrate[
-  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2/ ( 2 \[Sigma]Silverman^2) ,
+  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2/ \[Sigma]Silverman^2 ,
   {rn, rnStart, rnEnd}, 
   Method-> {Automatic, "SymbolicProcessing" -> 0},
   WorkingPrecision -> 10, 
@@ -1231,7 +1231,7 @@ chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NInteg
 ];
 
 chi2Lower[rsn_?NumberQ, X_, n\[Sigma]_] := chi2Lower[rsn, X, n\[Sigma]] = NIntegrate[
-  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2/ ( 2 \[Sigma]Silverman^2) , 
+  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2/  \[Sigma]Silverman^2 , 
   {rn, rnStart, rnEnd}, 
   Method-> {Automatic, "SymbolicProcessing" -> 0},
   WorkingPrecision -> 10, 
