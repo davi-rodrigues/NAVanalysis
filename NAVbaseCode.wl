@@ -21,7 +21,7 @@ Examples of variables names conventions (inspired on the Hungarian convention):
 
 BeginPackage["NAVbaseCode`"];
 
-{globalData, headerGlobalData, YDcentral, YBcentral, clearOwnValues, addCol, squareSign, sqrtSign, medianUncertainty, equal0, colReff, 
+{globalData, headerGlobalData, YDcentral, YBcentral, clearOwnValues, addCol, removeHeader, squareSign, sqrtSign, medianUncertainty, equal0, colReff, 
 colh, colLD, colLB, colL, colD, colYD, colYB,  colMHI, colMgas, coldf2, colV, colQ, cola0, colLoga0B, colMD, 
 colMB, colMbar, colS1min, colS1plus,colS2min, colS2plus,  colS3min, colS3plus, colS5min, colS5plus, colHtype, colSeff, 
 colS0, coli, colHIr, colChi2, colChired, colDataPoints, col\[Delta], col\[Delta]i, col\[Delta]D, colrc, collogRhoc, GalaxiesOutsideRAR, 
@@ -30,7 +30,8 @@ galaxy, galNumbers, distance, galdata, putcolG, gd, hRadlist, normalRadlist, nor
 colGnVobs, colGVbar, colGVmiss, colGnVmiss, colGVmissLinear, colGnVmissLinear, colGVmiss2, colGVms2, colGnVmiss2, 
 colG\[Delta]Vms, colGAobs, colGAms, colGnAms galdataRAR, gdR, definedFunctions, silvermanBw, gdRBulgeless, galdataRARBulgeless, 
 Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc, globalDataNfwFixed, globalDataNfwGY,
-headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positivePart, \[Delta]Vobs1\[Sigma]L, \[Delta]Vobs2\[Sigma]L, \[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal};
+headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positivePart, \[Delta]Vobs1\[Sigma]L, \[Delta]Vobs2\[Sigma]L, \[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal,
+list1hn, list1hGasn, list1logSigma0, list1logSigmaGas0, list1frho, list1fh};
 
 Begin["Private`"];
 
@@ -98,6 +99,8 @@ medianUncertainty[x_, n_] := 1.858/Sqrt[n-1] MedianDeviation[x];
 SetAttributes[equal0, Listable];
 equal0[x_] := Equal[x,0];
 
+removeHeader[list_] := Select[list, \[Not]StringTake[ToString @ # , {2}] === "#" &]; (*If the header is identified with "#", this function removes it.*)
+
 
 (* ::Subsection::Closed:: *)
 (*Global data related definitions*)
@@ -129,6 +132,19 @@ GalaxiesOutsideRAR = Flatten[(Position[globalData[[All,1]], #] & /@ bad),1];
 
 (*dataRAR is useful in general, but at the moment it is not not used in this code.*)
 globalDataRAR = Delete[globalData,GalaxiesOutsideRAR]; 
+
+
+(* ::Subsection:: *)
+(*Convenient definitions for exponential approximations data*)
+
+
+list1hn = Normal @ datasetExpVdiskNoBulge[All, "hn"];
+list1hGasn = Normal @ datasetExpVgasNoBulge[All, "hGasn"];
+list1logSigma0 = Normal @ datasetExpVdiskNoBulge[All, "logSigma0"];
+list1logSigmaGas0 = Normal @ datasetExpVgasNoBulge[All, "logSigma0Gas"];
+
+list1frho = list1logSigmaGas0 / (0.5 list1logSigma0) (*The 0.5 comes from the mass to light ratio*);
+list1fh = list1hn / list1hGasn;
 
 
 (* ::Subsection::Closed:: *)
@@ -385,7 +401,7 @@ gdRBulgeless[listcols_] := gdRBulgeless[listcols] = Table[gdRBulgeless[listcols,
 
 (* ::Subsection::Closed:: *)
 (*Silverman bandwidth definition*)
-(*I am not using the Mathetica's built in version, but they agree.*)
+(*(this is independent from Mathetica's built in version, but they agree)*)
 
 
 Clear[silvermanBw];
@@ -472,7 +488,7 @@ exportBurkertIndividualResultsFixed:= Block[
 
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*NAV efficiency definition*)
 
 

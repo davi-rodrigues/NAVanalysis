@@ -21,6 +21,10 @@
 
 isBurkertWithGaussianPriors = True; (*Loads the Burkert data with Gaussian priors (True), or the fixed case (False)*)
 
+SetDirectory @ FileNameJoin[{NotebookDirectory[], "Output"}];
+datasetExpVdiskNoBulge = Import["datasetExpVdiskNoBulge.m"]; (*Loads the exponential approximations for the stellar disk as a DataSet*)
+datasetExpVgasNoBulge = Import["datasetExpVgasNoBulge.m"]; (*The same as above, but for the gas.*)
+
 SetDirectory @ NotebookDirectory[];
 Needs @ "NAVbaseCode`";
 Get @ "NAVoptions.wl";
@@ -36,6 +40,7 @@ If[isBurkertWithGaussianPriors,
   (*if neither True or False*)
   Exit[]
 ];
+
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
@@ -161,14 +166,6 @@ statusHistogram[nSigmas_, rcnLowerLimit_, rcnUpperLimit_]:= Block[{},
   RmaxXrc = Delete[RmaxXrcAll, posExcluded];
   rcnDataAll =  (Divide @@@ RmaxXrcAll)^-1;
   rcnData =  (Divide @@@ RmaxXrc)^-1;
-  histoOptions =   Sequence @@ {
-    Frame -> True, 
-    Axes -> False, 
-    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
-    FrameStyle -> Directive[GrayLevel[0.4], 16],
-    PlotRangeClipping -> True,
-    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
-  };
   
   rcnDataWithoutOutliers = Select[rcnData, rcnLowerLimit < # < rcnUpperLimit &]; 
   dist = SmoothKernelDistribution[
@@ -386,14 +383,6 @@ statusHistogramNfwFixed[nSigmas_, rsnLowerLimit_, rsnUpperLimit_]:= Block[{},
   RmaxXrs = Delete[RmaxXrsAll, posExcluded];
   rsnDataAll =  (Divide @@@ RmaxXrsAll)^-1;
   rsnData =  (Divide @@@ RmaxXrs)^-1;  (*IMPORTANT INTRODUCED LOG HERE*)
-  histoOptions =   Sequence @@ {
-    Frame -> True, 
-    Axes -> False, 
-    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
-    FrameStyle -> Directive[GrayLevel[0.4], 16],
-    PlotRangeClipping -> True,
-    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
-  };
   
   rsnDataWithoutOutliers = Select[rsnData, rsnLowerLimit < # < rsnUpperLimit &]; 
   dist = SmoothKernelDistribution[
@@ -503,14 +492,6 @@ statusHistogramNfwFixed[nSigmas_, rsnLowerLimit_, rsnUpperLimit_]:= Block[{},
   RmaxXrs = Delete[RmaxXrsAll, posExcluded];
   rsnDataAll =  (Divide @@@ RmaxXrsAll)^-1;
   rsnData =  (Divide @@@ RmaxXrs)^-1;  (*IMPORTANT INTRODUCED LOG HERE*)
-  histoOptions =   Sequence @@ {
-    Frame -> True, 
-    Axes -> False, 
-    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
-    FrameStyle -> Directive[GrayLevel[0.4], 16],
-    PlotRangeClipping -> True,
-    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
-  };
   
   rsnDataWithoutOutliers = Select[rsnData, rsnLowerLimit < # < rsnUpperLimit &]; 
   dist = SmoothKernelDistribution[
@@ -620,14 +601,7 @@ statusHistogramNfwFixed[nSigmas_, rsnLowerLimit_, rsnUpperLimit_]:= Block[{},
   RmaxXrs = Delete[RmaxXrsAll, posExcluded];
   rsnDataAll =  (Divide @@@ RmaxXrsAll)^-1;
   rsnData =  Log10 @ ((Divide @@@ RmaxXrs)^-1);  (*IMPORTANT INTRODUCED LOG HERE*)
-  histoOptions =   Sequence @@ {
-    Frame -> True, 
-    Axes -> False, 
-    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
-    FrameStyle -> Directive[GrayLevel[0.4], 16],
-    PlotRangeClipping -> True,
-    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
-  };
+ 
   
   rsnDataWithoutOutliers = Select[rsnData, rsnLowerLimit < # < rsnUpperLimit &]; 
   dist = SmoothKernelDistribution[
@@ -1215,198 +1189,6 @@ Echo["plotNFWGlobalGammaBestFit:"];
 Print@plotNFWGlobalGammaBestFit;
 
 Export["plotNFWGlobalGammaBestFit.pdf", plotNFWGlobalGammaBestFit];
-
-
-Clear[vExp, fitExpVdisk, fitExpVdiskPlot, chi2, associationFitExpVdisk];
-
-(*vExp comes from Binney & Tremaine 2nd Ed., eq.(2.165)*)
-vExp[R_,logSigma0_,h_]= Block[{y}, 
-  y = R/(2 h);
-  kpc Sqrt[4 \[Pi] G0 10^logSigma0 h y^2 (BesselI[0,y] BesselK[0,y] - BesselI[1,y] BesselK[1,y])]
-];
-
-chi2[model_List, dataObs_List, uncertainty_List] := chi2[model, dataObs, uncertainty]  = Total[(model-dataObs)^2/uncertainty^2];
-
-associationFitExpVdisk::usage="associationFitExpVdisk[data(R x Vdisk)] fits the radial vs disk velocity curve data as a rotation curve for an exponential disk and returns an association with several data. "<>
-  "For fitting, it is assumed an uncertainty of 10% on the velocity. The important point is not the porportionality constant, but that the uncertainty is proportional to the velocity. "<>
-  "If data = {},  associationFitExpVdisk returns {}.";
-
-associationFitExpVdisk[dataRVdisk_List] := fitExpVdisk[dataRVdisk] = Block[
-  {sol, R, h, bestLogSigma0, besth, logSigma0, listModel, uncertainty, rMax, solExtended},
-  If[
-    dataRVdisk=={}, 
-    Return[{}]
-  ];
-  rMax = Last @ dataRVdisk[[All, 1]];
-  listModel = vExp[# , logSigma0, h] & /@ dataRVdisk[[All,1]];
-  uncertainty = Max[{0.10 dataRVdisk[[#, 2]], 2}] & /@ Range@Length@dataRVdisk; (*Assumes uncertainty of 10% or 2 km/s. *)
-  sol = NMinimize[
-    {chi2[listModel, dataRVdisk[[All, 2]], uncertainty], h > 0, logSigma0 > 1},
-    {{logSigma0, 6, 10}, {h, 0.5, 10}},
-    Method-> Automatic
-  ];
-  (*{logSigma0, h, Chi2, Number of data points }*)
-  solExtended = {First@sol, First@sol/(Length[dataRVdisk] - 2), logSigma0, h, h/rMax, rMax, Length[dataRVdisk]} /. Last@sol;
-  AssociationThread[{"Chi2", "Chi2red", "logSigma0", "h", "hn", "rMax", "dataPoints"}, solExtended]
-];
-
-plotFittedExpVdisk[dataRVdisk_List, bestVdiskValues_List]:= Block[
-  {vMax, bestLogSigma0, besth, rMax},
-  If[
-    dataRVdisk=={}, 
-    Return[{}]
-  ];
-  {bestLogSigma0, besth} = bestVdiskValues;
-  vMax = Max @ dataRVdisk[[All, 2]];
-  rMax = Last @ dataRVdisk[[All, 1]];
-  Show[
-    {
-      ListPlot[
-        dataRVdisk,
-        PlotRange -> {{0, 1.1 * rMax}, {0, 1.1 * vMax}}
-      ],
-      Plot[vExp[R, bestLogSigma0, besth], {R, 0, 100}, PlotRange -> All]
-    }
-  ]
-];
-
-
-Echo["Computing datasetExpVdiskNoBulge. This takes some seconds."];
-datasetExpVdiskNoBulge = Dataset[
-  DeleteCases[ 
-    associationFitExpVdisk[gdRBulgeless[{Rad, Vdisk}, #]] & /@ Range[175], 
-  {}]
-] // EchoTiming
-
-
-Export["headerAux.txt", {
-  "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
-  "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
-  "# ",
-  "# The complete Table B1 data: the best fit results of an exponential model for the stellar component of 122 SPARC galaxies.",
-  "# First column: best-fit disk scale length (h).",
-  "# Second column: best-fit central surface brightness (logSigma0).",
-  "# Third column: normalized disk scale length (hn).",
-  "# Fourth column: the minimum chi-squared value (Chi2).",
-  "# Fifth column: the number of galaxy data points that were used for the fit (dataPoints).", 
-  "# ",
-  "# "
-}];
-
-datasetStarsExport = datasetExpVdiskNoBulge[All,{"h","logSigma0", "hn","Chi2", "dataPoints"}];
-Export["StellarExponentialBestFitAux.tsv", datasetStarsExport, Alignment-> Left, "TextDelimiters"->None];
-
-Run["cat headerAux.txt StellarExponentialBestFitAux.tsv > StellarExponentialBestFit.tsv"]; (*It is only guaranteed to work in Unix systems. Sorry Windows...*)
-
-DeleteFile["headerAux.txt"];
-DeleteFile["StellarExponentialBestFitAux.tsv"];
-
-
-listhn= Normal @ datasetExpVdiskNoBulge[All, "hn"];
-
-dist = SmoothKernelDistribution[
-  listhn,
-  silvermanBw @ listhn,
-  MaxExtraBandwidths -> 0,
-  InterpolationPoints -> 10^4 (*This is a large number, it has no relevant impact on speed *)
-];
-
-listHDPDFlimits = FindHDPDFValues[dist, oneAndTwoSigma];
-
-list2PointsXPDF = {dist["InterpolationPoints"], dist["PDFValues"]}\[Transpose];
-positionMaxPDF = First @ Last @ SortBy[list2PointsXPDF, Last];
-
-rootsSigma[i_] := (FindRoot[
-  PDF[dist, x] == listHDPDFlimits[[i]], 
-  #, 
-  MaxIterations -> 1000
-] & /@ {{x, 0, positionMaxPDF}, {x, positionMaxPDF, 1}}) ~ Quiet ~ FindRoot::brmp;
-
-{hnLow[1], hnHigh @ 1} = x /. rootsSigma[1];
-{hnLow[2], hnHigh @ 2} = x /. rootsSigma[2];
-
-Clear @ lines;
-lines[nSigmas_] := {
-  Dashed,
-  Thickness[0.004 / nSigmas],
-  Line @ {{hnLow @ nSigmas, 0}, {hnLow @ nSigmas, 100}},
-  Line @ {{hnHigh @ nSigmas, 0}, {hnHigh @ nSigmas, 100}}
-};
-
-Echo[{hnLow @ 1, hnHigh @ 1} ,"1\[Sigma] limits:"];
-Echo[{hnLow @ 2, hnHigh @ 2} ,"2\[Sigma] limits:"];
-
-Show[
-  {
-    Histogram[listhn,
-      {silvermanBw @ listhn},
-      "PDF", histoOptions, Epilog -> {lines @ 1, lines @ 2},
-      PlotRange -> All
-    ],
-    nPlot[PDF[dist, x], {x, 0, 10}]
-  }
-]
-
-
-Clear[associationFitExpVgas];
-associationFitExpVgas[dataRVgas_List] := associationFitExpVgas[dataRVgas] = Block[
-  {sol, R, h, bestLogSigma0, besth, logSigma0, listModel, uncertainty, rMax, solExtended},
-  If[
-    dataRVgas=={}, 
-    Return[{}]
-  ];
-  rMax = Last @ dataRVgas[[All, 1]];
-  listModel = vExp[# , logSigma0, h] & /@ dataRVgas[[All,1]];
-  uncertainty = Max[{0.10 dataRVgas[[#, 2]], 2}] & /@ Range@Length@dataRVgas; (*Max[10%, 2 km/s] uncertainty, inspired on distance error together with a minimum one.*)
-  sol = NMinimize[
-    {chi2[listModel, dataRVgas[[All, 2]], uncertainty], 100 rMax > h > 0.1, logSigma0 > 0.5},
-    {{logSigma0, 3, 10}, {h, 3, 30}},
-    Method-> Automatic
-  ];
-  (*{logSigma0, h, Chi2, Number of data points }*)
-  solExtended = {First@sol, First@sol/(Length[dataRVgas] - 2), logSigma0, h, h/rMax, rMax, Length[dataRVgas]} /. Last@sol;
-  AssociationThread[{"Chi2", "Chi2red", "logSigma0Gas", "hGas", "hGasn", "rMax", "dataPoints"}, solExtended]
-];
-
-
-Echo["Computing datasetExpVgasNoBulge. This takes some seconds."];
-datasetExpVgasNoBulge = Dataset[
-  DeleteCases[ 
-    associationFitExpVgas[gdRBulgeless[{Rad, Vgas}, #]] & /@ Range[175], 
-  {}]
-] // EchoTiming
-
-
-Export["headerGasAux.txt", {
-  "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
-  "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
-  "# ",
-  "# This file: Best fit results of an exponential model for the gaseous component of 122 SPARC galaxies.",
-  "# First column: best-fit disk scale length (hGas).",
-  "# Second column: best-fit central surface brightness (logSigma0Gas).",
-  "# Third column: normalized disk scale length (hGasn).",
-  "# Fourth column: the minimum chi-squared value (Chi2).",
-  "# Fifth column: the number of galaxy data points that were used for the fit (dataPoints).", 
-  "# ",
-  "# "
-}];
-
-datasetGasExport = datasetExpVgasNoBulge[All,{"hGas","logSigma0Gas", "hGasn","Chi2", "dataPoints"}];
-Export["GasExponentialBestFitAux.tsv", datasetGasExport, Alignment-> Left, "TextDelimiters"->None];
-
-Run["cat headerGasAux.txt GasExponentialBestFitAux.tsv > GasExponentialBestFit.tsv"]; (*It is only guaranteed to work in Unix systems. Sorry Windows...*)
-
-DeleteFile["headerGasAux.txt"];
-DeleteFile["GasExponentialBestFitAux.tsv"];
-
-
-list1hn = Normal@datasetExpVdiskNoBulge[All, "hn"];
-list1hGasn = Normal@datasetExpVgasNoBulge[All, "hGasn"];
-list1logSigma0 = Normal@datasetExpVdiskNoBulge[All, "logSigma0"];
-list1logSigmaGas0 = Normal@datasetExpVgasNoBulge[All, "logSigma0Gas"];
-
-list1frho = list1logSigmaGas0/ (0.5 list1logSigma0) (*The 0.5 comes from the mass to light ratio*);
-list1fh = list1hn/ list1hGasn;
 
 
 \[Delta]vP2[rn_, hn_] = rn Exp[(1-rn) / hn];
