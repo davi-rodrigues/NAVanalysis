@@ -1540,6 +1540,38 @@ Show[
 Export["plotdeltaVRGGR.pdf", %];
 
 
+ (*phiDisk and phiGas come from Binney & Tremaine 2nd Ed., eq.(2.164a)*)
+Clear[phiExpDisk, phiExpGal, phiExpGal, \[CapitalDelta]VVRGGR, \[Delta]VVRGGR]
+
+phiExpDisk[R_,logSigma0_,h_] = Block[{y, logSigma0, h, R}, 
+  y = R/(2 h);
+  - 4 \[Pi] G0 10^logSigma0 R (BesselI[0,y] BesselK[1,y] - BesselI[1,y] BesselK[0,y])
+];
+
+phiExpGal[R_, logSigma0_, h_, logSigmaGas0_, hGas_] = 0.5 phiExpDisk[R, logSigma0, h] + phiExpDisk[R, logSigmaGas0, hGas];
+
+phiExpGal[R_, gal_Integer] := phiExpGal[R, gal] = phiExpGal[R, Sequence @@ dataGal[gal]];
+
+\[CapitalDelta]VVRGGR[R_, gal_] := - VVInfty VVbarExp[R, gal] / phiExpGal[R, gal];
+
+\[Delta]VVRGGRAux[rn_, gal_Integer] := \[Delta]VVRGGRAux[rn, gal] =  \[CapitalDelta]VVRGGR[rn rMax[gal], gal] / \[CapitalDelta]VVRGGR[rMax[gal], gal];
+
+(*To speed up the plots, it is relevant to define \[Delta]VVMondExp from a list of interpolated functions (list1\[Delta]VVMondExp)*)
+l1\[Delta]VVRGGR[rni_] = Block[
+  {l2\[Delta]VVRGGRAux},
+  l2\[Delta]VVRGGRAux[gali_] := Prepend[
+    Table[{rni, \[Delta]VVRGGRAux[rni, gali]}, {rni, 0.05, 1, 0.05}], 
+    {0,0}
+  ];
+  Table[
+    Interpolation[l2\[Delta]VVRGGRAux[gali]][rni], 
+  {gali, nG}
+  ]
+];
+
+\[Delta]VVRGGR[rn_, gal_] :=  l1\[Delta]VVRGGR[rn][[gal]]
+
+
 \[Delta]Vobs1\[Sigma]L[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[1]][xn]; (*L stands for lower limit*)
 \[Delta]Vobs1\[Sigma]U[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[2]][xn]; (*U stands for upper limit*)
 \[Delta]Vobs2\[Sigma]L[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[3]][xn];
