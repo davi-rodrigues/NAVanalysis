@@ -28,7 +28,10 @@ SetDirectory @ FileNameJoin[{NotebookDirectory[], "Output"}];
 
 Clear[vExp, fitExpVdisk, fitExpVdiskPlot, chi2, associationFitExpVdisk];
 
-(*vExp comes from Binney & Tremaine 2nd Ed., eq.(2.165)*)
+(*
+  vExp comes from Binney & Tremaine 2nd Ed., eq.(2.165). 
+  It is assumed that  \[CapitalSigma] = Subscript[\[CapitalSigma], 0] \[ExponentialE]^(-R/h), where Subscript[\[CapitalSigma], 0] has dimension of mass/length^2, it  is the surface mass density
+*)
 vExp[R_,logSigma0_,h_]= Block[{y}, 
   y = R/(2 h);
   kpc Sqrt[4 \[Pi] G0 10^logSigma0 h y^2 (BesselI[0,y] BesselK[0,y] - BesselI[1,y] BesselK[1,y])]

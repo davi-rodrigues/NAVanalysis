@@ -30,8 +30,9 @@ galaxy, galNumbers, distance, galdata, putcolG, gd, hRadlist, normalRadlist, nor
 colGnVobs, colGVbar, colGVmiss, colGnVmiss, colGVmissLinear, colGnVmissLinear, colGVmiss2, colGVms2, colGnVmiss2, 
 colG\[Delta]Vms, colGAobs, colGAms, colGnAms galdataRAR, gdR, definedFunctions, silvermanBw, gdRBulgeless, galdataRARBulgeless, 
 Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc, globalDataNfwFixed, globalDataNfwGY,
-headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positivePart, \[Delta]Vobs1\[Sigma]L, \[Delta]Vobs2\[Sigma]L, \[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal,
-list1hn, list1hGasn, list1logSigma0, list1logSigmaGas0, list1frho, list1fh};
+headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positivePart, \[Delta]Vobs1\[Sigma]L, \[Delta]Vobs2\[Sigma]L, 
+\[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal, list1hn, list1hGasn, list1logSigma0, list1logSigmaGas0, list1frho, list1fh,
+\[Rho]stars, \[Rho]gas, \[Rho]bar};
 
 Begin["Private`"];
 
@@ -131,21 +132,24 @@ bad=Union[badinc,badQ];
 GalaxiesOutsideRAR = Flatten[(Position[globalData[[All,1]], #] & /@ bad),1];
 
 (*dataRAR is useful in general, but at the moment it is not not used in this code.*)
-globalDataRAR = Delete[globalData,GalaxiesOutsideRAR]; 
+globalDataRAR = Delete[globalData, GalaxiesOutsideRAR]; 
 
 
 (* ::Subsection:: *)
 (*Convenient definitions for exponential approximations data*)
 
 
-list1hn = Normal @ datasetExpVdiskNoBulge[All, "hn"];
-list1hGasn = Normal @ datasetExpVgasNoBulge[All, "hGasn"];
-list1logSigma0 = Normal @ datasetExpVdiskNoBulge[All, "logSigma0"];
-list1logSigmaGas0 = Normal @ datasetExpVgasNoBulge[All, "logSigma0Gas"];
+list1hn = Normal @ Global`datasetExpVdiskNoBulge[All, "hn"];
+list1hGasn = Normal @ Global`datasetExpVgasNoBulge[All, "hGasn"];
+list1logSigma0 = Normal @ Global`datasetExpVdiskNoBulge[All, "logSigma0"];
+list1logSigmaGas0 = Normal @ Global`datasetExpVgasNoBulge[All, "logSigma0Gas"];
 
-list1frho = list1logSigmaGas0 / (0.5 list1logSigma0) (*The 0.5 comes from the mass to light ratio*);
+list1frho = 10^list1logSigmaGas0 / 10^list1logSigma0; (* Recall that these are central densities, not central surface brightness*)
 list1fh = list1hn / list1hGasn;
 
+\[Rho]stars[rn_, gal_] :=  10^list1logSigma0[[gal]] E^(- rn/list1hn[[gal]]);
+\[Rho]gas[rn_, gal_] :=  10^list1logSigmaGas0[[gal]] E^(- rn/list1hGasn[[gal]]);
+\[Rho]bar[rn_, gal_] :=  \[Rho]stars[rn, gal] + \[Rho]gas[rn, gal];
 
 (* ::Subsection::Closed:: *)
 (*Rotmod data (individual galaxy data)*)
@@ -343,7 +347,11 @@ Clear[gdR];
 SetAttributes[gdR, HoldFirst];
 gdR::usage = 
   "gdR is a shortcut for calling specifc data from the function galdataRAR.\n" <>
-  "It is the equivalent of gd, but it only displays galaxies in the RAR sample (3168 data points)."; 
+  "It is the equivalent of gd, but it only displays galaxies in the RAR sample (3168 data points). \n" <>
+  "gdR[list] returns a table composed by the columns given by list and for all the galaxies.\n"<>
+	"gdR[list,i] returns a table composed by the columns given by list of the galaxy i. \n"<>
+	"gdR[list,i,j] is the equivalent of gd[list,i][[j]].\n"<>
+	"`list' can include any combination of the folowing strings that match columns: Rad, Vobs, \[Delta]Vobs, Vgas, Vdisk, Vbulge, SBdisk, SBbulge."; 
 gdR[listcols_, galn_] := gdR[listcols, galn] = If[listcols === All, galdataRAR[galn], galdataRAR[galn][[All, putcolG@listcols]]];
 gdR[listcols_, galn_, line_] := gdR[listcols, galn, line] = gdR[listcols, galn][[line]];
 gdR[listcols_] := gdR[listcols] = Table[gdR[listcols, galn], {galn, 175}];

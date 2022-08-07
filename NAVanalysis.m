@@ -41,6 +41,9 @@ If[isBurkertWithGaussianPriors,
   Exit[]
 ];
 
+Clear[rmax, rmin]; 
+rmax[gal_] := gd[Rad][[All, -1]][[gal]]; (*gal here is the galaxy nunber for the complete sample with 175 galaxies*)
+rmin[gal_] := gd[Rad][[All, 1]][[gal]];
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
@@ -1538,6 +1541,16 @@ Show[
 ]
 
 Export["plotdeltaVRGGR.pdf", %];
+
+
+\[Delta]vP2g[rn_, hn_, fh_, frho_]= (rn ( E^(-(rn/hn))+  frho  fh E^(- fh rn/hn)))/( E^(-(1/hn))+  frho fh  E^(- fh /hn));
+\[Delta]vPalatini[rn_, gal_] := \[Delta]vP2g[rn, list1hn[[gal]], list1fh[[gal]], list1frho[[gal]]];
+Show[plotBackground[2.5],
+  plotSigmaRegionsRARNoBulge,
+  Plot[Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], {rn, 0, 1}, 
+PlotRange -> All, 
+PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
+]
 
 
  (*phiDisk and phiGas come from Binney & Tremaine 2nd Ed., eq.(2.164a)*)
