@@ -1240,26 +1240,25 @@ StyleBox[\"v\",\nFontSlant->\"Italic\"], \(2\)]\)", 20, FontFamily->Times]}
 ]
 
 
-\[Delta]vP2g[rn_, hn_, fh_, frho_]= (rn ( E^(-(rn/hn))+  frho  fh E^(- fh rn/hn)))/( E^(-(1/hn))+  frho fh  E^(- fh /hn));
-\[Delta]vPalatini[rn_, gal_] := \[Delta]vP2g[rn, list1hn[[gal]], list1fh[[gal]], list1frho[[gal]]];
-Show[plotBackground[2.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], {rn, 0, 1}, 
-PlotRange -> All, 
-PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
-]
-
-
 
 Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]vPalatini[rn, gal]}, {rn, RandomReal[1,200]}];
+list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]vPalatini[rn, gal]}, {rn, RandomReal[1, 400]}];
 list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 122, {}], 1];
 
-distPalatini = distributionSilverman @ list2\[Delta]VVmodelAll;
+list2\[Delta]VVmodelAlllimit = Select[list2\[Delta]VVmodelAll, #[[2]] < 5 &]; (*Data points with \[Delta]v larger than 5 are not considered, too far...*)
+
+distPalatini = distributionSilverman[list2\[Delta]VVmodelAlllimit, 400]; (*Due to the large dispersion of data points, 400 InpoterpolationPoints are used*)
 list1LimitsSigmaPalatini = FindHDPDFValues[distPalatini, oneAndTwoSigma];
 (*plotBluePalatini = plotBlue[list2\[Delta]VVmodelAll, list1LimitsSigmaPalatini, {{xmin, xmax - 0.01}, {-0.5, 2.5}}, PlotRange -> {{0, 0.99}, {-0.5, 2.5}}] *)
 
-plotPalatiniCurves = Plot[Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], {rn, 0, 1}, PlotRange -> All, PlotStyle-> Directive[Opacity[0.1],Blue, Thick]];
+plotPalatiniCurves = Plot[
+  Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], 
+  {rn, 0, 1}, 
+  PlotRange -> All, 
+  PlotStyle -> Directive[Opacity[0.1],
+  Blue, 
+  Thick]
+];
 
 plotPalatiniContours = ContourPlot[
   {

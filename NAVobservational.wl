@@ -9,21 +9,11 @@
 
 
 (* ::Section:: *)
-(*I.1. Kernel Density Estimation for the distribution*)
+(*I.1. Plots for Kernel Density Estimation for the distribution*)
 
-
-Clear[distributionSilverman, plotBlueZero, statusKDE];
-
-distributionSilverman[dataForKDE_] := distributionSilverman[dataForKDE] = SmoothKernelDistribution[
-  dataForKDE, 
-  silvermanBw[dataForKDE], 
-  "Gaussian", 
-  MaxExtraBandwidths -> {{0,0}, {2,2}}, 
-  (* No extension for the horizontal axis: there cannot be data lower than 0 and higher than 1,
-   extension of 2 bandwidths in the vertical axis: relevant for a few models.*)
-  InterpolationPoints -> 200
-]; (*Apart from MaxExtraBandwidths and InterpolationPoints, these are the standard options for SmoothKernelDistribution*)
   
+
+Clear[plotBlueZero, statusKDE];
 
 plotBlueZero[dataForKDE_, opts:OptionsPattern[]] := nListPlot[
   {dataForKDE}, 

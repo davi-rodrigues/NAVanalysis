@@ -32,7 +32,7 @@ colG\[Delta]Vms, colGAobs, colGAms, colGnAms galdataRAR, gdR, definedFunctions, 
 Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc, globalDataNfwFixed, globalDataNfwGY,
 headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positivePart, \[Delta]Vobs1\[Sigma]L, \[Delta]Vobs2\[Sigma]L, 
 \[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal, list1hn, list1hGasn, list1logSigma0, list1logSigmaGas0, list1frho, list1fh,
-\[Rho]stars, \[Rho]gas, \[Rho]bar};
+\[Rho]stars, \[Rho]gas, \[Rho]bar, distributionSilverman};
 
 Begin["Private`"];
 
@@ -144,10 +144,10 @@ list1hGasn = Normal @ Global`datasetExpVgasNoBulge[All, "hGasn"];
 list1logSigma0 = Normal @ Global`datasetExpVdiskNoBulge[All, "logSigma0"];
 list1logSigmaGas0 = Normal @ Global`datasetExpVgasNoBulge[All, "logSigma0Gas"];
 
-list1frho = 10^list1logSigmaGas0 / 10^list1logSigma0; (* Recall that these are central densities, not central surface brightness*)
+list1frho = 10^list1logSigmaGas0 / (YDcentral 10^list1logSigma0); (* These are central densities, and the YDcentral correction is necessary since the exponential fits were done with Y = 1*)
 list1fh = list1hn / list1hGasn;
 
-\[Rho]stars[rn_, gal_] :=  10^list1logSigma0[[gal]] E^(- rn/list1hn[[gal]]);
+\[Rho]stars[rn_, gal_] := YDcentral 10^list1logSigma0[[gal]] E^(- rn/list1hn[[gal]]); (* YDcentral appears since the exponential approximations are based on the stellar rotation curves, which use Y = 1.*)
 \[Rho]gas[rn_, gal_] :=  10^list1logSigmaGas0[[gal]] E^(- rn/list1hGasn[[gal]]);
 \[Rho]bar[rn_, gal_] :=  \[Rho]stars[rn, gal] + \[Rho]gas[rn, gal];
 
@@ -432,6 +432,15 @@ silvermanBw[dataX_?ListQ] := silvermanBw[dataX] = Block[
   k * n^(-1/(d+4)) A
 ];
 
+distributionSilverman[dataForKDE_, interpolationPoints_:300] := SmoothKernelDistribution[
+  dataForKDE, 
+  silvermanBw[dataForKDE], 
+  "Gaussian", 
+  MaxExtraBandwidths -> {{0,0}, {2,2}}, 
+  (* No extension for the horizontal axis: there cannot be data lower than 0 and higher than 1,
+   extension of 2 bandwidths in the vertical axis: relevant for a few models.*)
+  InterpolationPoints -> interpolationPoints
+]; (*Apart from MaxExtraBandwidths and InterpolationPoints, these are the standard options for SmoothKernelDistribution*)
 
 
 (* ::Subsection::Closed:: *)

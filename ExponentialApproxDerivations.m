@@ -30,7 +30,7 @@ Clear[vExp, fitExpVdisk, fitExpVdiskPlot, chi2, associationFitExpVdisk];
 
 (*
   vExp comes from Binney & Tremaine 2nd Ed., eq.(2.165). 
-  It is assumed that  \[CapitalSigma] = Subscript[\[CapitalSigma], 0] \[ExponentialE]^(-R/h), where Subscript[\[CapitalSigma], 0] has dimension of mass/length^2, it  is the surface mass density
+  It is assumed that  \[CapitalSigma] = Subscript[\[CapitalSigma], 0] \[ExponentialE]^(-R/h), where Subscript[\[CapitalSigma], 0] has dimension of mass/length^2, it  is the surface mass density.
 *)
 vExp[R_,logSigma0_,h_]= Block[{y}, 
   y = R/(2 h);
@@ -51,14 +51,14 @@ associationFitExpVdisk[dataRVdisk_List] := fitExpVdisk[dataRVdisk] = Block[
   ];
   rMax = Last @ dataRVdisk[[All, 1]];
   listModel = vExp[# , logSigma0, h] & /@ dataRVdisk[[All,1]];
-  uncertainty = Max[{0.10 dataRVdisk[[#, 2]], 2}] & /@ Range@Length@dataRVdisk; (*Assumes uncertainty of 10% or 2 km/s. *)
+  uncertainty = Max[{0.10 dataRVdisk[[#, 2]], 2}] & /@ Range @ Length @ dataRVdisk; (*Assumes uncertainty of 10% or 2 km/s. *)
   sol = NMinimize[
     {chi2[listModel, dataRVdisk[[All, 2]], uncertainty], h > 0, logSigma0 > 1},
     {{logSigma0, 6, 10}, {h, 0.5, 10}},
     Method-> Automatic
   ];
   (*{logSigma0, h, Chi2, Number of data points }*)
-  solExtended = {First@sol, First@sol/(Length[dataRVdisk] - 2), logSigma0, h, h/rMax, rMax, Length[dataRVdisk]} /. Last@sol;
+  solExtended = {First @ sol, First @ sol/(Length[dataRVdisk] - 2), logSigma0, h, h/rMax, rMax, Length[dataRVdisk]} /. Last@sol;
   AssociationThread[{"Chi2", "Chi2red", "logSigma0", "h", "hn", "rMax", "dataPoints"}, solExtended]
 ];
 
