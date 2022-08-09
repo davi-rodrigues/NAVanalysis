@@ -28,6 +28,7 @@ datasetExpVgasNoBulge = Import["datasetExpVgasNoBulge.m"]; (*The same as above, 
 SetDirectory @ NotebookDirectory[];
 Needs @ "NAVbaseCode`";
 Get @ "NAVoptions.wl";
+Print["Starting NAVobservational..."];
 Get @ "NAVobservational.wl";
 Get["MDC14aux.mx", Path -> "AuxiliaryData"] // Quiet; (*If something goes wrong, this file will be generated*)
 
@@ -42,8 +43,8 @@ If[isBurkertWithGaussianPriors,
 ];
 
 Clear[rmax, rmin]; 
-rmax[gal_] := gd[Rad][[All, -1]][[gal]]; (*gal here is the galaxy nunber for the complete sample with 175 galaxies*)
-rmin[gal_] := gd[Rad][[All, 1]][[gal]];
+rmax[gal_] := Last[gdR[Rad, gal]]; (*gal here is the galaxy nunber for the complete sample with 175 galaxies*)
+rmin[gal_] := First[gdR[Rad, gal]];
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
@@ -1240,16 +1241,42 @@ StyleBox[\"v\",\nFontSlant->\"Italic\"], \(2\)]\)", 20, FontFamily->Times]}
 ]
 
 
+\[Delta]vP2g[rn_, hn_, fh_, frho_]= (rn ( E^(-(rn/hn))+  frho  fh E^(- fh rn/hn)))/( E^(-(1/hn))+  frho fh  E^(- fh /hn));
+\[Delta]vPalatini[rn_, gal_] := \[Delta]vP2g[rn, list1hn[[gal]], list1fh[[gal]], list1frho[[gal]]];
+Show[plotBackground[4.0],
+  plotSigmaRegionsRARNoBulge,
+  Plot[Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], {rn, 0, 1}, 
+PlotRange -> All, 
+PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
+]
+
+
 
 Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]vPalatini[rn, gal]}, {rn, RandomReal[1, 400]}];
+list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]vPalatini[rn, gal]}, {rn, RandomReal[1, 350]}];
 list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 122, {}], 1];
 
 list2\[Delta]VVmodelAlllimit = Select[list2\[Delta]VVmodelAll, #[[2]] < 5 &]; (*Data points with \[Delta]v larger than 5 are not considered, too far...*)
 
 distPalatini = distributionSilverman[list2\[Delta]VVmodelAlllimit, 400]; (*Due to the large dispersion of data points, 400 InpoterpolationPoints are used*)
-list1LimitsSigmaPalatini = FindHDPDFValues[distPalatini, oneAndTwoSigma];
+pdfValuenSigmaPalatini[n_?NumberQ] := FindHDPDFValues[distPalatini, nSigmaProbability[n]];
 (*plotBluePalatini = plotBlue[list2\[Delta]VVmodelAll, list1LimitsSigmaPalatini, {{xmin, xmax - 0.01}, {-0.5, 2.5}}, PlotRange -> {{0, 0.99}, {-0.5, 2.5}}] *)
+
+Clear[plotPalatiniSigma];
+plotPalatiniSigma[n_] := plotPalatiniSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaPalatini[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
+  ];
+  ContourPlot[
+    PDF[distPalatini, {x,y}] == pdfValue, 
+    {x, 0, 1}, {y, -1, 5},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
+  ]
+];
 
 plotPalatiniCurves = Plot[
   Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], 
@@ -1260,14 +1287,11 @@ plotPalatiniCurves = Plot[
   Thick]
 ];
 
-plotPalatiniContours = ContourPlot[
-  {
-    PDF[distPalatini, {x,y}] == list1LimitsSigmaPalatini[[1]], 
-    PDF[distPalatini, {x,y}] == list1LimitsSigmaPalatini[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 4.0},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}];
-
+plotPalatiniContours = Show[
+  {plotPalatiniSigma[1], 
+  plotPalatiniSigma[2]}
+];
+  
 Show[
   plotBackground[4.0],
   plotSigmaRegionsRARNoBulge,
@@ -1276,6 +1300,125 @@ Show[
 ]
 
 Export["plotdeltaVPalatini.pdf", %];
+
+
+{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
+  regionIntersection[plotPalatiniSigma[1],1], 
+  regionDifference[plotPalatiniSigma[1],1],
+  regionIntersection[plotPalatiniSigma[2],2],
+  regionDifference[plotPalatiniSigma[2],2]
+  }]
+
+
+efficiencyNAV[nSigma_] := (Area @ rI[nSigma] - Area @ rD[nSigma])/areaSigma @ plotObsSigma[nSigma];
+efficiencyNAVtotal[] := Mean[{efficiencyNAV[1],efficiencyNAV[2]}];
+
+
+CloseKernels[];
+LaunchKernels[];
+DistributeDefinitions["NAVbaseCode`"]
+DistributeDefinitions["Private`"]
+DistributeDefinitions[plotPalatiniSigma, regionDifference, regionIntersection]
+DistributeDefinitions[regionIntersection, regionDifference];
+sub = {ParallelSubmit[regionIntersection[plotPalatiniSigma[1],1]],
+ParallelSubmit[regionDifference[plotPalatiniSigma[1],1]],
+ParallelSubmit[regionIntersection[plotPalatiniSigma[2],2]],
+ParallelSubmit[regionDifference[plotPalatiniSigma[2],2]]}
+  
+
+
+Clear[a0, aNewtList, aNewt, \[CapitalDelta]VVmodel, rmax, interpolVbar, interpolVbarSquared, VVmodel, \[Delta]VVmodel];
+
+rmax[gal_] := Last[gdR[Rad, gal]];
+
+aNewtList[gal_]:=Block[{vvbar, aux},
+  vvbar = squareSign[gdR[Vbar, gal]];
+  (*vvbar = Total[{ squareSign[#1], 0.5 squareSign[#2], 0.6 squareSign[#3] }] & @@@ gdR[{Vgas, Vdisk, Vbulge},gal];*)
+  aux = {gdR[Rad,gal], vvbar/(kpc gdR[Rad,gal])}\[Transpose];
+  Prepend[aux, {0,0}]
+];
+
+aNewt[R_, gal_] := aNewt[R, gal] = Interpolation[aNewtList[gal], Method->"Spline", InterpolationOrder->2][R];
+
+VVmodel[R_, gal_] := R kpc aNewt[R, gal]/(1 - E^-Sqrt[RealAbs[aNewt[R, gal]]/a0]);
+
+\[CapitalDelta]VVmodel[R_, gal_] := VVmodel[R, gal] - aNewt[R, gal] R kpc ;
+
+\[Delta]VVmodel[rn_, gal_] := If[gdR[Rad, gal]=={}, 
+  {}, 
+  \[CapitalDelta]VVmodel[rn rmax[gal], gal] / \[CapitalDelta]VVmodel[rmax[gal], gal]
+];
+
+
+a0 = 1;
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRAR,
+  Plot[
+    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1}, 
+    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
+  ]
+]
+
+Export["plotdeltaVmonda01.pdf", %];
+
+
+a0 = 10^-15;
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRAR,
+  Plot[
+    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1},  
+    PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
+  ]
+]
+
+Export["plotdeltaVmonda015.pdf", %];
+
+
+a0 = 1.2 10^-13;
+Clear @ list2\[Delta]VVmodel;
+list2\[Delta]VVmodel[gal_] := If[
+  gdR[Rad, gal] == {},
+  {},
+  Table[{rn, \[Delta]VVmodel[rn, gal]}, {rn, RandomReal[1,70]}]
+];
+list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 175, {}], 1];
+
+
+list1LimitsSigmaMondRaw = FindHDPDFValues[distributionSilverman @ list2\[Delta]VVmodelAll, oneAndTwoSigma];
+plotBlueMondRaw = plotBlue[
+  list2\[Delta]VVmodelAll, 
+  list1LimitsSigmaMondRaw, 
+  {{xmin, xmax - 0.01}, {-0.5, 1.5}}, 
+  PlotRange -> {{0, 0.99}, {-0.5, 1.5}}
+] 
+
+
+distMondRaw =distributionSilverman @ list2\[Delta]VVmodelAll;
+
+plotMondCurves = Plot[
+  Evaluate[\[Delta]VVmodel[rn, #] & /@ Range@175], {rn, 0, 1}, 
+  PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
+];
+
+plotMondContours = ContourPlot[
+  {
+    PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[1]], 
+    PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[2]]
+  }, 
+  {x,0,1}, {y,-0.5, 1.5},  
+  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
+];
+
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRAR,
+  plotMondCurves,
+  plotMondContours
+]
+
+Export["plotdeltaVmondPrincipal.pdf", %];
 
 
 Clear[a0, aNewtList, aNewt, \[CapitalDelta]VVmodel, rmax, interpolVbar, interpolVbarSquared, VVmodel, \[Delta]VVmodel];
@@ -1656,8 +1799,6 @@ plotRGGRSigma[n_] := plotRGGRSigma[n] = ContourPlot[
   PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
 ];
 
-(* General purpose useful function *)
-positivePart[x_] := HeavisideTheta[x] x;
 
 (*List of points, instead of ContourPlots, for the models whose limiting \[Sigma] regions come from functions*)
 Clear[pointsBurkertSigma];

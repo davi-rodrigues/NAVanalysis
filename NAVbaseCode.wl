@@ -32,7 +32,7 @@ colG\[Delta]Vms, colGAobs, colGAms, colGnAms galdataRAR, gdR, definedFunctions, 
 Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc, globalDataNfwFixed, globalDataNfwGY,
 headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positivePart, \[Delta]Vobs1\[Sigma]L, \[Delta]Vobs2\[Sigma]L, 
 \[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal, list1hn, list1hGasn, list1logSigma0, list1logSigmaGas0, list1frho, list1fh,
-\[Rho]stars, \[Rho]gas, \[Rho]bar, distributionSilverman};
+\[Rho]stars, \[Rho]gas, \[Rho]bar, distributionSilverman, areaSigma, regionIntersection, regionDifference, listExtractPoints, plotObsSigma};
 
 Begin["Private`"];
 
@@ -506,7 +506,7 @@ exportBurkertIndividualResultsFixed:= Block[
 
 
 (* ::Subsection::Closed:: *)
-(*NAV efficiency definition*)
+(* NAV efficiency definition - Integration method *)
 
 
 (* ::Text:: *)
@@ -561,6 +561,50 @@ efficiencyNAVtotal[ModelSigmaL1_, ModelSigmaU1_, ModelSigmaL2_, ModelSigmaU2_] :
   efficiencyNAV[ModelSigmaL2, ModelSigmaU2, 2]
 ) / 2;
 
+(* ::Subsection::Closed:: *)
+(* NAV efficiency definition - Region comparison method*)
+
+(* ::Text:: *)
+(* This is a slower method, but it does not require that the nSigma region boundaries are functions. Typically relevant for models of type 2. The definitions here do not clash with the previous ones due to the different number of arguments.*)
+
+listExtractPoints[plot_Graphics] := Cases[
+  Normal @ FullForm @ First @ plot,
+  Line[pts_] :> pts,
+  Infinity
+];
+
+
+polygonPrepare[listToExtractPoints_List] := Block[
+  {pointsAux, transformation},
+  If[Length[listToExtractPoints] == 2, Null, Echo["Data must be a list with two components, one for each curve."]; Print[listToExtractPoints]; Abort[]];
+  If[
+    Round[listToExtractPoints[[1,1,1]], 1] == Round[listToExtractPoints[[2,1,1]], 1], (*Check if both parts of the data start either close to 1 or to 0.*)
+    transformation = Reverse, (*If both parts start together, one will need to be reversed*)
+    transformation = Identity
+  ];
+  pointsAux = Join[First @ listToExtractPoints, transformation @ Last @ listToExtractPoints ];
+  Cases[pointsAux, {x_,y_} /; 0.2 < x < 0.9]
+];
+
+Clear[areaSigma];
+areaSigma[plot_Graphics] := Area @ Polygon @ polygonPrepare @ listExtractPoints @ plot;
+
+areaSigma[points_List] := Area @ Polygon @ polygonPrepare @ points ;
+
+Clear[regionIntersection];
+regionIntersection[plotModelSigma_Graphics, nSigma_] := RegionIntersection[
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
+];
+
+Clear[regionDifference];
+regionDifference[plotModelSigma_Graphics, nSigma_] := RegionDifference[
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
+];
+
+efficiencyNAV[plotModelSigma_Graphics, nSigma_] := (Area @ regionIntersection[plotModelSigma, nSigma] - Area @ regionDifference[plotModelSigma, nSigma]) / areaSigma @ plotObsSigma[nSigma];
+efficiencyNAVtotal[plotModelSigma_Graphics] := Mean[{efficiencyNAV[plotModelSigma, 1], efficiencyNAV[plotModelSigma, 2]}];
 
 (* ::Subsection:: *)
 (*Prints all the introduced functions in this package*)
