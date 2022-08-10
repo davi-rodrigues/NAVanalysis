@@ -1302,6 +1302,19 @@ Show[
 Export["plotdeltaVPalatini.pdf", %];
 
 
+DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];
+
+EchoTiming[
+{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
+  regionIntersection[plotPalatiniSigma[1],1], 
+  regionDifference[plotPalatiniSigma[1],1],
+  regionIntersection[plotPalatiniSigma[2],2],
+  regionDifference[plotPalatiniSigma[2],2]
+  }]
+]
+
+
 {rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
   regionIntersection[plotPalatiniSigma[1],1], 
   regionDifference[plotPalatiniSigma[1],1],
@@ -1312,19 +1325,6 @@ Export["plotdeltaVPalatini.pdf", %];
 
 efficiencyNAV[nSigma_] := (Area @ rI[nSigma] - Area @ rD[nSigma])/areaSigma @ plotObsSigma[nSigma];
 efficiencyNAVtotal[] := Mean[{efficiencyNAV[1],efficiencyNAV[2]}];
-
-
-CloseKernels[];
-LaunchKernels[];
-DistributeDefinitions["NAVbaseCode`"]
-DistributeDefinitions["Private`"]
-DistributeDefinitions[plotPalatiniSigma, regionDifference, regionIntersection]
-DistributeDefinitions[regionIntersection, regionDifference];
-sub = {ParallelSubmit[regionIntersection[plotPalatiniSigma[1],1]],
-ParallelSubmit[regionDifference[plotPalatiniSigma[1],1]],
-ParallelSubmit[regionIntersection[plotPalatiniSigma[2],2]],
-ParallelSubmit[regionDifference[plotPalatiniSigma[2],2]]}
-  
 
 
 Clear[a0, aNewtList, aNewt, \[CapitalDelta]VVmodel, rmax, interpolVbar, interpolVbarSquared, VVmodel, \[Delta]VVmodel];

@@ -6,13 +6,12 @@
 
 (* ::Author:: *)
 (*Davi C. Rodrigues*)
-(*July 2021 - March 2022*)
-(*Version 1.1*)
+(*July 2021 - Ago 2022*)
 
 
 (* 
 Examples of variables names conventions (inspired on the Hungarian convention):
-  listDFunctionName :  a list of dimension D .
+  listDFunctionName : a list of dimension D .
   plotFunctionName : a plot .
   isFunctionName : a boolean variable, it is either True or False .
   distributionFunctionName : a DataDistribution .
@@ -34,7 +33,7 @@ headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positiv
 \[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal, list1hn, list1hGasn, list1logSigma0, list1logSigmaGas0, list1frho, list1fh,
 \[Rho]stars, \[Rho]gas, \[Rho]bar, distributionSilverman, areaSigma, regionIntersection, regionDifference, listExtractPoints, plotObsSigma};
 
-Begin["Private`"];
+Begin["`Private`"];
 
 
 (* ::Subsection::Closed:: *)
@@ -573,12 +572,25 @@ listExtractPoints[plot_Graphics] := Cases[
   Infinity
 ];
 
+listForceTwoComponents[list_List] := (
+  If[Length @ list == 3,
+    Echo["function listForceTwoComponents is being used. This is not a problem, but a remark."];
+    If[Abs[aux[[1,1,2]] - aux[[2,1,2]]] >  Abs[aux[[3,1,2]] - aux[[2,1,2]]],
+      Return[{aux[[1]], Sort @ Join[aux[[2]], aux[[3]]]}],
+      Return[{Sort @ Join[aux[[1]], aux[[2]]], aux[[3]]}]
+    ]
+  ];
+  If[Length @ list > 3, Echo["listForceTwoComponents issue: Provied list has more than 3 components."]];
+  list
+);
+
 
 polygonPrepare[listToExtractPoints_List] := Block[
-  {pointsAux, transformation},
-  If[Length[listToExtractPoints] == 2, Null, Echo["Data must be a list with two components, one for each curve."]; Print[listToExtractPoints]; Abort[]];
+  {pointsAux, transformation, listImproved},
+  listImproved = listForceTwoComponents @ listToExtractPoints;
+  If[Length[listImproved] == 2, Null, Echo["Data must either be a list with two components, one for each curve, or 3 components: in this case one of the componets is mergerd."]; Print[listToExtractPoints]; Abort[]];
   If[
-    Round[listToExtractPoints[[1,1,1]], 1] == Round[listToExtractPoints[[2,1,1]], 1], (*Check if both parts of the data start either close to 1 or to 0.*)
+    Round[listImproved[[1,1,1]], 1] == Round[listImproved[[2,1,1]], 1], (*Check if both parts of the data start either close to 1 or to 0.*)
     transformation = Reverse, (*If both parts start together, one will need to be reversed*)
     transformation = Identity
   ];
