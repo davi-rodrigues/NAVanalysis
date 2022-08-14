@@ -42,9 +42,26 @@ If[isBurkertWithGaussianPriors,
   Exit[]
 ];
 
+(*
+  FUNCTIONS DEFINITIONS THAT ARE BOTH USEFUL AND WORK AS SIMPLE EXAMPLES.
+  These functions were created from the "galaxy data RAR" function (gdR). "RAR" since it is based on the 153 RAR galaxies.
+  gdR returns "{}" whenever one considers a galaxy number that is in the original SPARC sample, but not in the RAR sample.
+*)
+
 Clear[rmax, rmin]; 
-rmax[gal_] := Last[gdR[Rad, gal]]; (*gal here is the galaxy nunber for the complete sample with 175 galaxies*)
-rmin[gal_] := First[gdR[Rad, gal]];
+rmax[gal_] := Last[gdR["Rad", gal]]; (*gal here is the galaxy nunber for the complete sample with 175 galaxies *)
+rmin[gal_] := First[gdR["Rad", gal]];
+
+listVBar[gal_] := gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] &;
+vBar[R_, gal_] := Interpolation[listVBar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic circular velocity*)
+listABar[gal_] := {#1, squareSign[#2]/ (kpc #1)} & @@@ gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] & ;
+aBar[R_, gal_] := Interpolation[listABar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic acceleration*)
+
+(*The definition below depends on rI and rD, which are defined, for each model, 
+in their corresponding NAV efficiency section *)
+efficiencyNAV[nSigma_] := (Area @ rI[nSigma] - Area @ rD[nSigma])/areaSigma @ plotObsSigma[nSigma];
+efficiencyNAVtotal[] := Mean[{efficiencyNAV[1], efficiencyNAV[2]}];
+
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
@@ -1195,57 +1212,11 @@ Print@plotNFWGlobalGammaBestFit;
 Export["plotNFWGlobalGammaBestFit.pdf", plotNFWGlobalGammaBestFit];
 
 
-\[Delta]vP2[rn_, hn_] = rn Exp[(1-rn) / hn];
-
-plot100 := nPlot[
-  100,
-  {rn, 0, 1},
-  PlotRange -> {{0, 1}, {-0.25, 1.5}},
-  AspectRatio -> (1 / 1.3),
-  GridLines -> None, 
-  ImageSize -> 500, 
-  FrameStyle -> 18, 
-  Epilog -> 
-  {
-    Line[{{0.2, -0.5}, {0.2, 2}}],
-    Line @ {{0.9, -0.5}, {0.9, 2}},
-    Dotted,
-    Line @ {{0, 0}, {1, 0}}
-  }
-];
-
-plotPalatiniStars := Plot[
-  {\[Delta]vP2[rn, 0.3], \[Delta]vP2[rn, 0.5], \[Delta]vP2[rn, 10]},
-  {rn, 0, 1},
-  PlotRange -> All,
-  PlotStyle -> 
-  {
-    {Thickness[0.005], DotDashed, Darker[Red, 0.3]},
-    {Thickness[0.005], Dashed, Darker[Red, 0.3]},
-    {Thickness[0.005], Darker[Red, 0.3]}
-  },
-  PlotLegends->Placed[
-    {
-      Style["\!\(\*SubscriptBox[\(h\), \(n\)]\) = 0.3",17, FontFamily->Times], 
-      Style["\!\(\*SubscriptBox[\(h\), \(n\)]\) = 0.5",17, FontFamily->Times], 
-      Style["\!\(\*SubscriptBox[\(h\), \(n\)]\) = 10",17, FontFamily->Times]
-    },
-    {{0.76,0.26},{0.5,0.5}}
-  ]
-];
-
-Show[{plot100, plotSigmaRegionsRARNoBulge, plotPalatiniStars}, 
-  FrameLabel->{Style["\!\(\*SubscriptBox[
-StyleBox[\"r\",\nFontSlant->\"Italic\"], \(n\)]\)", 20, FontFamily->Times], Style["\[Delta]\!\(\*SuperscriptBox[
-StyleBox[\"v\",\nFontSlant->\"Italic\"], \(2\)]\)", 20, FontFamily->Times]}
-]
-
-
 \[Delta]vP2g[rn_, hn_, fh_, frho_]= (rn ( E^(-(rn/hn))+  frho  fh E^(- fh rn/hn)))/( E^(-(1/hn))+  frho fh  E^(- fh /hn));
-\[Delta]vPalatini[rn_, gal_] := \[Delta]vP2g[rn, list1hn[[gal]], list1fh[[gal]], list1frho[[gal]]];
+\[Delta]v2Palatini[rn_, gal_] := \[Delta]vP2g[rn, list1hn[[gal]], list1fh[[gal]], list1frho[[gal]]];
 Show[plotBackground[4.0],
   plotSigmaRegionsRARNoBulge,
-  Plot[Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], {rn, 0, 1}, 
+  Plot[Evaluate[\[Delta]v2Palatini[rn, #] & /@ Range@122], {rn, 0, 1}, 
 PlotRange -> All, 
 PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
 ]
@@ -1253,7 +1224,7 @@ PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
 
 
 Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]vPalatini[rn, gal]}, {rn, RandomReal[1, 350]}];
+list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]v2Palatini[rn, gal]}, {rn, RandomReal[1, 350]}];
 list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 122, {}], 1];
 
 list2\[Delta]VVmodelAlllimit = Select[list2\[Delta]VVmodelAll, #[[2]] < 5 &]; (*Data points with \[Delta]v larger than 5 are not considered, too far...*)
@@ -1279,7 +1250,7 @@ plotPalatiniSigma[n_] := plotPalatiniSigma[n] = Block[{pdfValue, contourStyle},
 ];
 
 plotPalatiniCurves = Plot[
-  Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], 
+  Evaluate[\[Delta]v2Palatini[rn, #] & /@ Range@122], 
   {rn, 0, 1}, 
   PlotRange -> All, 
   PlotStyle -> Directive[Opacity[0.1],
@@ -1312,58 +1283,41 @@ EchoTiming[
   regionIntersection[plotPalatiniSigma[2],2],
   regionDifference[plotPalatiniSigma[2],2]
   }]
-]
-
-
-{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
-  regionIntersection[plotPalatiniSigma[1],1], 
-  regionDifference[plotPalatiniSigma[1],1],
-  regionIntersection[plotPalatiniSigma[2],2],
-  regionDifference[plotPalatiniSigma[2],2]
-  }]
-
-
-efficiencyNAV[nSigma_] := (Area @ rI[nSigma] - Area @ rD[nSigma])/areaSigma @ plotObsSigma[nSigma];
-efficiencyNAVtotal[] := Mean[{efficiencyNAV[1],efficiencyNAV[2]}];
-
-
-Clear[a0, aNewtList, aNewt, \[CapitalDelta]VVmodel, rmax, interpolVbar, interpolVbarSquared, VVmodel, \[Delta]VVmodel];
-
-rmax[gal_] := Last[gdR[Rad, gal]];
-
-aNewtList[gal_]:=Block[{vvbar, aux},
-  vvbar = squareSign[gdR[Vbar, gal]];
-  (*vvbar = Total[{ squareSign[#1], 0.5 squareSign[#2], 0.6 squareSign[#3] }] & @@@ gdR[{Vgas, Vdisk, Vbulge},gal];*)
-  aux = {gdR[Rad,gal], vvbar/(kpc gdR[Rad,gal])}\[Transpose];
-  Prepend[aux, {0,0}]
 ];
 
-aNewt[R_, gal_] := aNewt[R, gal] = Interpolation[aNewtList[gal], Method->"Spline", InterpolationOrder->2][R];
+efficiencyNAV[1]
+efficiencyNAV[2]
+efficiencyNAVtotal[]
 
-VVmodel[R_, gal_] := R kpc aNewt[R, gal]/(1 - E^-Sqrt[RealAbs[aNewt[R, gal]]/a0]);
 
-\[CapitalDelta]VVmodel[R_, gal_] := VVmodel[R, gal] - aNewt[R, gal] R kpc ;
+Clear[a0, \[CapitalDelta]VVmodel, VVmodel, \[Delta]VVmodel];
 
-\[Delta]VVmodel[rn_, gal_] := If[gdR[Rad, gal]=={}, 
+v2MondRaw[R_, gal_] := R kpc aBar[R, gal]/(1 - E^-Sqrt[RealAbs[aBar[R, gal]]/a0]);
+
+\[CapitalDelta]v2MondRaw[R_, gal_] := v2MondRaw[R, gal] - aBar[R, gal] R kpc ;
+
+\[Delta]v2MondRaw[rn_, gal_] := If[gdR["Rad", gal]=={}, 
   {}, 
-  \[CapitalDelta]VVmodel[rn rmax[gal], gal] / \[CapitalDelta]VVmodel[rmax[gal], gal]
+  \[CapitalDelta]v2MondRaw[rn rmax[gal], gal] / \[CapitalDelta]v2MondRaw[rmax[gal], gal]
 ];
 
-
-a0 = 1;
+Echo[a0 = 1, "a0 = "];
 Show[
   plotBackground[1.5],
   plotSigmaRegionsRAR,
   Plot[
-    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1}, 
+    Evaluate[\[Delta]v2MondRaw[rn, #]& /@ Range@175], {rn,0,1}, 
     PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
   ]
 ]
 
-Export["plotdeltaVmonda01.pdf", %];
+If[ChoiceDialog["Save plotdeltaVmonda01.pdf?"], 
+  Export["plotdeltaVmonda01.pdf", %],
+  Echo["Plot not saved."];
+]
 
 
-a0 = 10^-15;
+Echo[a0 = 1. 10^-15, "a0 = "];
 Show[
   plotBackground[1.5],
   plotSigmaRegionsRAR,
@@ -1373,7 +1327,10 @@ Show[
   ]
 ]
 
-Export["plotdeltaVmonda015.pdf", %];
+If[ChoiceDialog["Save plotdeltaVmonda015.pdf?"], 
+  Export["plotdeltaVmonda015.pdf", %],
+  Echo["Plot not saved."];
+]
 
 
 a0 = 1.2 10^-13;
@@ -1386,16 +1343,49 @@ list2\[Delta]VVmodel[gal_] := If[
 list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 175, {}], 1];
 
 
-list1LimitsSigmaMondRaw = FindHDPDFValues[distributionSilverman @ list2\[Delta]VVmodelAll, oneAndTwoSigma];
-plotBlueMondRaw = plotBlue[
-  list2\[Delta]VVmodelAll, 
-  list1LimitsSigmaMondRaw, 
-  {{xmin, xmax - 0.01}, {-0.5, 1.5}}, 
-  PlotRange -> {{0, 0.99}, {-0.5, 1.5}}
-] 
+distMondRaw = distributionSilverman @ list2\[Delta]VVmodelAll;
 
+pdfValuenSigmaMondRaw[n_?NumberQ] := FindHDPDFValues[distMondRaw, nSigmaProbability[n]];
 
-distMondRaw =distributionSilverman @ list2\[Delta]VVmodelAll;
+Clear[plotMondRawSigma];
+plotMondRawSigma[n_] := plotMondRawSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaMondRaw[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
+  ];
+  ContourPlot[
+    PDF[distMondRaw, {x,y}] == pdfValue, 
+    {x, 0, 1}, {y, -1, 5},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
+  ]
+];
+
+plotMondRawCurves = Plot[
+  Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], 
+  {rn, 0, 1}, 
+  PlotRange -> All, 
+  PlotStyle -> Directive[Opacity[0.1],
+  Blue, 
+  Thick]
+];
+
+plotPalatiniContours = Show[
+  {plotPalatiniSigma[1], 
+  plotPalatiniSigma[2]}
+];
+  
+Show[
+  plotBackground[4.0],
+  plotSigmaRegionsRARNoBulge,
+  plotPalatiniCurves,
+  plotPalatiniContours
+]
+
+Export["plotdeltaVPalatini.pdf", %];
+
 
 plotMondCurves = Plot[
   Evaluate[\[Delta]VVmodel[rn, #] & /@ Range@175], {rn, 0, 1}, 
