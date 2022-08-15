@@ -18,6 +18,8 @@ Examples of variables names conventions (inspired on the Hungarian convention):
   statusFunctionName : a function that prints miscelaneous data for status purposes.
 *)
 
+
+
 BeginPackage["NAVbaseCode`"];
 
 {globalData, headerGlobalData, YDcentral, YBcentral, clearOwnValues, addCol, removeHeader, squareSign, sqrtSign, medianUncertainty, equal0, colReff, 
@@ -40,13 +42,16 @@ Begin["`Private`"];
 (*Loading data*)
 
 
-(*The following loads Burkert data. The only effect is to define TableResults.*)
-If[Global`isBurkertWithGaussianPriors == True,
+(*The following loads Burkert data. The only effect is to define TableResults. There are two options for loading the Burkert data, se below.*)
+
+isBurkertWithGaussianPriors = True; (* Loads the Burkert data with Gaussian priors (True), or the fixed case (False) *)
+
+If[isBurkertWithGaussianPriors == True,
   Get["Burkert-GY-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"] ,
   (*else*)
   Get["Burkert-Fixed-MAGMAtableResults.m", Path -> "AuxiliaryData"] ,
   (*Neither True or False*)
-  Print["The variable isBurkertWithGaussianPriors need to be set as True or False before starting BaseCode"];
+  Print["The variable isBurkertWithGaussianPriors need to be set as True or False"];
   Abort[]
 ];
 
@@ -138,7 +143,9 @@ globalDataRAR = Delete[globalData, GalaxiesOutsideRAR];
 (*Convenient definitions for exponential approximations data*)
 
 
+list1h = Normal @ Global`datasetExpVdiskNoBulge[All, "h"];
 list1hn = Normal @ Global`datasetExpVdiskNoBulge[All, "hn"];
+list1hGas = Normal @ Global`datasetExpVgasNoBulge[All, "hGas"];
 list1hGasn = Normal @ Global`datasetExpVgasNoBulge[All, "hGasn"];
 list1logSigma0 = Normal @ Global`datasetExpVdiskNoBulge[All, "logSigma0"];
 list1logSigmaGas0 = Normal @ Global`datasetExpVgasNoBulge[All, "logSigma0Gas"];
@@ -448,7 +455,7 @@ distributionSilverman[dataForKDE_, interpolationPoints_:300] := SmoothKernelDist
 
 exportBurkertIndividualResultsGaussian:= Block[
   {dataBurkertFitsExport},
-  If[Global`isBurkertWithGaussianPriors == True, Null, Print["This requires isBurkertWithGaussianPriors==True. Try exportBurkertIndividualResultsFixed."]; Abort[]];
+  If[isBurkertWithGaussianPriors == True, Null, Print["This requires isBurkertWithGaussianPriors==True. Try exportBurkertIndividualResultsFixed."]; Abort[]];
   Export["headerAux.txt", {
     "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
     "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
@@ -477,7 +484,7 @@ exportBurkertIndividualResultsGaussian:= Block[
 
 exportBurkertIndividualResultsFixed:= Block[
   {dataBurkertFitsExport},
-  If[Global`isBurkertWithGaussianPriors == False, Null, Print["This requires isBurkertWithGaussianPriors==False. Try exportBurkertIndividualResultsGaussian."]; Abort[]];
+  If[isBurkertWithGaussianPriors == False, Null, Print["This requires isBurkertWithGaussianPriors==False. Try exportBurkertIndividualResultsGaussian."]; Abort[]];
   Export["headerAux.txt", {
     "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
     "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
@@ -502,6 +509,16 @@ exportBurkertIndividualResultsFixed:= Block[
   DeleteFile["BurkertFits-05-06-FixedAux.tsv"]
 ];
 
+
+SetDirectory @ Global`pathOutputDirectory
+If[isBurkertWithGaussianPriors,
+  exportBurkertIndividualResultsGaussian,
+  (*else*)
+  exportBurkertIndividualResultsFixed,
+  (*if neither True or False*)
+  Print["Variable NAVbaseCode`isBurkertWithGaussianPriors is neither True or False. Aborting."]; Abort[]
+];
+SetDirectory @ Global`pathBaseDirectory;
 
 
 (* ::Subsection::Closed:: *)

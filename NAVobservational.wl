@@ -15,6 +15,23 @@
 
 Clear[plotBlueZero, statusKDE];
 
+exportPlotObservational[fileName_, plotToExport_] := If[Global`saveNAVobservationalPlots, 
+  Block[{fileNameWithPath},
+    fileNameWithPath = FileNameJoin[{pathOutputDirectory, ToString @ fileName}];
+    Export[fileNameWithPath, plotToExport];
+    Echo[fileNameWithPath, "Exported"]
+  ]
+];
+
+exportTableObservational[fileName_, plotToExport_] := If[Global`saveNAVobservationalTables, 
+  Block[{fileNameWithPath},
+    fileNameWithPath = FileNameJoin[{pathOutputDirectory, ToString @ fileName}];
+    Export[fileNameWithPath, plotToExport];
+    Echo[fileNameWithPath, "Exported"]
+  ]
+];
+
+
 plotBlueZero[dataForKDE_, opts:OptionsPattern[]] := nListPlot[
   {dataForKDE}, 
   PlotMarkers -> {
@@ -147,15 +164,9 @@ plotObsSigma[n_] := plotObsSigma[n] = Block[{pdfValue},
 ];
 
 
-(*
-GraphicsRow[
-  {plotBlueRAR, plotBlueRARNoBulge},
-  0,
-  ImageSize \[Rule] 800
-]
+exportPlotObservational["plotBlueRAR.pdf", plotBlueRAR];
 
-Export["plotBlueRAR.pdf", plotBlueRAR];
-Export["plotBlueRARNoBulge.pdf", plotBlueRARNoBulge];*)
+exportPlotObservational["plotBlueRARNoBulge.pdf", plotBlueRARNoBulge];
 
 
 (* ::Text::GrayLevel[0]::Bold::Closed:: *)
@@ -320,7 +331,7 @@ exportSigmaList[list1IpSigmaCurves_, rnMin_, rnMax_, step_:0.025] := Block[
 list1InterpCurvesRAR = list1InterpSigmaCurves[plotBlueRAR];
 list1InterpCurvesRARNoBulge = list1InterpSigmaCurves[plotBlueRARNoBulge];
 
- 
-(*Export["sigmaRegionsRAR.csv", exportSigmaList[list1InterpCurvesRAR, 0.025, 1]];
-Export["sigmaRegionsRARNoBulge.csv", exportSigmaList[list1InterpCurvesRARNoBulge, 0.025, 1]];*)
+exportTableObservational["sigmaRegionsRAR.csv", exportSigmaList[list1InterpCurvesRAR, 0.025, 1]];
+exportTableObservational["sigmaRegionsRARNoBulge.csv", exportSigmaList[list1InterpCurvesRARNoBulge, 0.025, 1]];
+
 

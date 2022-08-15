@@ -19,31 +19,29 @@
 
 
 
-isBurkertWithGaussianPriors = True; (*Loads the Burkert data with Gaussian priors (True), or the fixed case (False)*)
+saveAllPlots = False; (*Change this to True to save ALL the plots that are generated in THIS notebook. It does not include NAVobservational plots. Saves for specific models are in their respective sections.*)
+saveNAVobservationalPlots = False;
+saveNAVobservationalTables = False;
 
-SetDirectory @ FileNameJoin[{NotebookDirectory[], "Output"}];
-datasetExpVdiskNoBulge = Import["datasetExpVdiskNoBulge.m"]; (*Loads the exponential approximations for the stellar disk as a DataSet*)
-datasetExpVgasNoBulge = Import["datasetExpVgasNoBulge.m"]; (*The same as above, but for the gas.*)
+pathBaseDirectory = NotebookDirectory[];
+pathOutputDirectory = FileNameJoin[{pathBaseDirectory, "Output"}];
+pathAuxDirectory = FileNameJoin[{pathBaseDirectory, "AuxiliaryData"}];
 
-SetDirectory @ NotebookDirectory[];
+datasetExpVdiskNoBulge = Import[FileNameJoin[{pathOutputDirectory, "datasetExpVdiskNoBulge.m"}]]; (*Loads the exponential approximations for the stellar disk as a DataSet*)
+datasetExpVgasNoBulge = Import[FileNameJoin[{pathOutputDirectory, "datasetExpVgasNoBulge.m"}]]; (*The same as above, but for the gas.*)
+
+SetDirectory @ pathBaseDirectory;
 Needs @ "NAVbaseCode`";
 Get @ "NAVoptions.wl";
 Print["Starting NAVobservational..."];
 Get @ "NAVobservational.wl";
-Get["MDC14aux.mx", Path -> "AuxiliaryData"] // Quiet; (*If something goes wrong, this file will be generated*)
+Get["MDC14aux.mx", Path -> pathAuxDirectory] // Quiet; (*If something goes wrong, this file will be generated*)
 
-SetDirectory @ FileNameJoin[{NotebookDirectory[], "Output"}];
-
-If[isBurkertWithGaussianPriors,
-  exportBurkertIndividualResultsGaussian,
-  (*else*)
-  exportBurkertIndividualResultsFixed,
-  (*if neither True or False*)
-  Exit[]
-];
+SetDirectory @ pathOutputDirectory;
 
 (*
   FUNCTIONS DEFINITIONS THAT ARE BOTH USEFUL AND WORK AS SIMPLE EXAMPLES.
+  
   These functions were created from the "galaxy data RAR" function (gdR). "RAR" since it is based on the 153 RAR galaxies.
   gdR returns "{}" whenever one considers a galaxy number that is in the original SPARC sample, but not in the RAR sample.
 *)
@@ -51,17 +49,40 @@ If[isBurkertWithGaussianPriors,
 Clear[rmax, rmin]; 
 rmax[gal_] := Last[gdR["Rad", gal]]; (*gal here is the galaxy nunber for the complete sample with 175 galaxies *)
 rmin[gal_] := First[gdR["Rad", gal]];
+rmax122[gal_] := datasetExpVdiskNoBulge[gal, "rMax"]; (* same as rmax, but for the sample with 122 galaxies.*)
 
 listVBar[gal_] := gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] &;
 vBar[R_, gal_] := Interpolation[listVBar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic circular velocity*)
+vBarn[rn_, gal_] := Interpolation[listVBar[gal], Method -> "Spline", InterpolationOrder -> 2][rn rmax[gal]]; (*Baryonic circular velocity*)
+
 listABar[gal_] := {#1, squareSign[#2]/ (kpc #1)} & @@@ gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] & ;
 aBar[R_, gal_] := Interpolation[listABar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic acceleration*)
+aBarn[rn_, gal_] := Interpolation[listABar[gal], Method -> "Spline", InterpolationOrder -> 2][rn rmax[gal]]; (*Baryonic acceleration*)
+
+vExp[R_,logSigma0_,h_]= Block[{y}, 
+  y = R/(2 h);
+  kpc Sqrt[4 \[Pi] G0 10^logSigma0 h y^2 (BesselI[0,y] BesselK[0,y] - BesselI[1,y] BesselK[1,y])]
+];
+
+hExpStar[gal_] := datasetExpVdiskNoBulge[gal, "h"];
+logSigma0ExpStar[gal_] := datasetExpVdiskNoBulge[gal, "logSigma0"];
+hExpGas[gal_] := datasetExpVgasNoBulge[gal, "hGas"];
+logSigma0ExpGas[gal_] := datasetExpVgasNoBulge[gal, "logSigma0Gas"];
+
+vStarExp[R_, gal_] := YDcentral vExp[R, logSigma0ExpStar[gal],hExpStar[gal]];
+vGasExp[R_, gal_] :=  vExp[R, logSigma0ExpGas[gal],hExpGas[gal]];
+vBarExp[R_, gal_] := Sqrt[vStarExp[R,gal]^2+ vGasExp[R,gal]^2];
+vBarExpn[rn_, gal_] := Sqrt[vStarExp[rn rmax122[gal],gal]^2+ vGasExp[rn rmax122[gal],gal]^2];
 
 (*The definition below depends on rI and rD, which are defined, for each model, 
 in their corresponding NAV efficiency section *)
 efficiencyNAV[nSigma_] := (Area @ rI[nSigma] - Area @ rD[nSigma])/areaSigma @ plotObsSigma[nSigma];
 efficiencyNAVtotal[] := Mean[{efficiencyNAV[1], efficiencyNAV[2]}];
 
+
+savePreviousPlot[fileName_] := If[saveThisPlot || saveAllPlots, 
+  Echo @ Export[ToString @ fileName, %]; saveThisPlot = False
+];
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
@@ -1292,6 +1313,8 @@ efficiencyNAVtotal[]
 
 Clear[a0, \[CapitalDelta]VVmodel, VVmodel, \[Delta]VVmodel];
 
+saveThisPlot = False; (*Change this to True to save it*)
+
 v2MondRaw[R_, gal_] := R kpc aBar[R, gal]/(1 - E^-Sqrt[RealAbs[aBar[R, gal]]/a0]);
 
 \[CapitalDelta]v2MondRaw[R_, gal_] := v2MondRaw[R, gal] - aBar[R, gal] R kpc ;
@@ -1311,43 +1334,39 @@ Show[
   ]
 ]
 
-If[ChoiceDialog["Save plotdeltaVmonda01.pdf?"], 
-  Export["plotdeltaVmonda01.pdf", %],
-  Echo["Plot not saved."];
-]
+savePreviousPlot["plotdeltaVmonda01.pdf"];
 
+
+saveThisPlot = False;
 
 Echo[a0 = 1. 10^-15, "a0 = "];
 Show[
   plotBackground[1.5],
   plotSigmaRegionsRAR,
   Plot[
-    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1},  
+    Evaluate[\[Delta]v2MondRaw[rn, #]& /@ Range@175], {rn,0,1},  
     PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
   ]
 ]
 
-If[ChoiceDialog["Save plotdeltaVmonda015.pdf?"], 
-  Export["plotdeltaVmonda015.pdf", %],
-  Echo["Plot not saved."];
-]
+savePreviousPlot["plotdeltaVmonda015.pdf"];
 
+
+saveThisPlot = False;
 
 a0 = 1.2 10^-13;
-Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := If[
-  gdR[Rad, gal] == {},
+Clear @ list2\[Delta]v2MondRaw;
+list2\[Delta]v2MondRaw[gal_] := If[
+  gdR["Rad", gal] == {},
   {},
-  Table[{rn, \[Delta]VVmodel[rn, gal]}, {rn, RandomReal[1,70]}]
+  Table[{rn, \[Delta]v2MondRaw[rn, gal]}, {rn, RandomReal[1,70]}]
 ];
-list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 175, {}], 1];
+list2\[Delta]v2MondRawAll = Flatten[DeleteCases[list2\[Delta]v2MondRaw /@ Range @ 175, {}], 1];
 
-
-distMondRaw = distributionSilverman @ list2\[Delta]VVmodelAll;
+distMondRaw = distributionSilverman @ list2\[Delta]v2MondRawAll;
 
 pdfValuenSigmaMondRaw[n_?NumberQ] := FindHDPDFValues[distMondRaw, nSigmaProbability[n]];
 
-Clear[plotMondRawSigma];
 plotMondRawSigma[n_] := plotMondRawSigma[n] = Block[{pdfValue, contourStyle},
   pdfValue = pdfValuenSigmaMondRaw[n];
   Which[
@@ -1364,7 +1383,7 @@ plotMondRawSigma[n_] := plotMondRawSigma[n] = Block[{pdfValue, contourStyle},
 ];
 
 plotMondRawCurves = Plot[
-  Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], 
+  Evaluate[\[Delta]v2MondRaw[rn, #] & /@ Range@122], 
   {rn, 0, 1}, 
   PlotRange -> All, 
   PlotStyle -> Directive[Opacity[0.1],
@@ -1372,124 +1391,120 @@ plotMondRawCurves = Plot[
   Thick]
 ];
 
-plotPalatiniContours = Show[
-  {plotPalatiniSigma[1], 
-  plotPalatiniSigma[2]}
+plotMondRawContours = Show[
+  {plotMondRawSigma[1], 
+  plotMondRawSigma[2]}
 ];
   
 Show[
-  plotBackground[4.0],
-  plotSigmaRegionsRARNoBulge,
-  plotPalatiniCurves,
-  plotPalatiniContours
-]
-
-Export["plotdeltaVPalatini.pdf", %];
-
-
-plotMondCurves = Plot[
-  Evaluate[\[Delta]VVmodel[rn, #] & /@ Range@175], {rn, 0, 1}, 
-  PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
-];
-
-plotMondContours = ContourPlot[
-  {
-    PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[1]], 
-    PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 1.5},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
-];
-
-Show[
   plotBackground[1.5],
   plotSigmaRegionsRAR,
-  plotMondCurves,
-  plotMondContours
+  plotMondRawCurves,
+  plotMondRawContours
 ]
 
-Export["plotdeltaVmondPrincipal.pdf", %];
+savePreviousPlot["plotdeltaVmondPrincipal.pdf"];
 
 
-Clear[a0, aNewtList, aNewt, \[CapitalDelta]VVmodel, rmax, interpolVbar, interpolVbarSquared, VVmodel, \[Delta]VVmodel];
+DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];
 
-rmax[gal_] := Last[gdR[Rad, gal]];
-
-aNewtList[gal_]:=Block[{vvbar, aux},
-  vvbar = squareSign[gdR[Vbar, gal]];
-  (*vvbar = Total[{ squareSign[#1], 0.5 squareSign[#2], 0.6 squareSign[#3] }] & @@@ gdR[{Vgas, Vdisk, Vbulge},gal];*)
-  aux = {gdR[Rad,gal], vvbar/(kpc gdR[Rad,gal])}\[Transpose];
-  Prepend[aux, {0,0}]
+EchoTiming[
+{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
+  regionIntersection[plotMondRawSigma[1],1], 
+  regionDifference[plotMondRawSigma[1],1],
+  regionIntersection[plotMondRawSigma[2],2],
+  regionDifference[plotMondRawSigma[2],2]
+  }]
 ];
 
-aNewt[R_, gal_] := aNewt[R, gal] = Interpolation[aNewtList[gal], Method->"Spline", InterpolationOrder->2][R];
+efficiencyNAV[1]
+efficiencyNAV[2]
+efficiencyNAVtotal[]
 
-VVmodel[R_, gal_] := R kpc aNewt[R, gal]/(1 - E^-Sqrt[RealAbs[aNewt[R, gal]]/a0]);
 
-\[CapitalDelta]VVmodel[R_, gal_] := VVmodel[R, gal] - aNewt[R, gal] R kpc ;
+Clear[a0];
 
-\[Delta]VVmodel[rn_, gal_] := If[gdR[Rad, gal]=={}, 
-  {}, 
-  \[CapitalDelta]VVmodel[rn rmax[gal], gal] / \[CapitalDelta]VVmodel[rmax[gal], gal]
+saveThisPlot = False; (*Change this to True to save it*)
+
+aBarExp[R_, gal_] :=  vBarExp[R, gal]^2/(R kpc);
+v2MondExp[R_, gal_] := R kpc aBarExp[R, gal]/(1 - E^-Sqrt[aBarExp[R, gal]/a0]);
+\[CapitalDelta]v2MondExp[R_, gal_] := v2MondExp[R, gal] - vBarExp[R, gal]^2;
+
+\[Delta]v2MondExp[rn_, gal_] := \[CapitalDelta]v2MondExp[rn rmax122[gal], gal]/\[CapitalDelta]v2MondExp[rmax122[gal], gal];
+
+
+
+Clear[a0];
+
+VVMondExp[R_, gal_] :=  R kpc aNewtExp[R, gal]/(1 - E^-Sqrt[aNewtExp[R, gal] / a0]);
+
+\[CapitalDelta]VVMondExp[R_, gal_] := VVMondExp[R, gal] - VVbarExp[R, gal];
+
+\[Delta]VVMondExpAux[rn_, gal_Integer] := \[CapitalDelta]VVMondExp[rn rMax[gal], gal] / \[CapitalDelta]VVMondExp[rMax[gal], gal];
+
+(*To speed up the plots, it is relevant to define \[Delta]VVMondExp from a list of interpolated functions (list1\[Delta]VVMondExp)*)
+list1\[Delta]VVMondExp[rni_] = Block[
+  {list2\[Delta]VVMondExpAux},
+  list2\[Delta]VVMondExpAux[gali_] := Prepend[
+    Table[{rni,\[Delta]VVMondExpAux[rni, gali]}, {rni, 0.05, 1, 0.05}], 
+    {0,0}
+  ];
+  Table[
+    Interpolation[list2\[Delta]VVMondExpAux[gali]][rni], 
+  {gali, nG}
+  ]
 ];
+
+\[Delta]VVMondExp[rn_, gal_] :=  list1\[Delta]VVMondExp[rn][[gal]]
+
 
 
 a0 = 1;
 Show[
   plotBackground[1.5],
-  plotSigmaRegionsRAR,
+  plotSigmaRegionsRARNoBulge,
   Plot[
-    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1}, 
-    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
+    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
+    PlotStyle -> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
   ]
 ]
 
-Export["plotdeltaVmonda01.pdf", %];
+Export["plotdeltaVmondExpa01.pdf", %];
 
 
 a0 = 10^-15;
 Show[
   plotBackground[1.5],
-  plotSigmaRegionsRAR,
+  plotSigmaRegionsRARNoBulge,
   Plot[
-    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1},  
+    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
     PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
   ]
 ]
 
-Export["plotdeltaVmonda015.pdf", %];
+Export["plotdeltaVmondExpa015.pdf", %];
 
 
 a0 = 1.2 10^-13;
 Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := If[
-  gdR[Rad, gal] == {},
-  {},
-  Table[{rn, \[Delta]VVmodel[rn, gal]}, {rn, RandomReal[1,70]}]
-];
-list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 175, {}], 1];
+list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]VVMondExp[rn, gal]}, {rn, RandomReal[1,70]}];
+list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ nG, {}], 1];
+distMondExp =distributionSilverman@list2\[Delta]VVmodelAll;
+
+list1LimitsSigmaMondExp = FindHDPDFValues[distMondExp, oneAndTwoSigma];
 
 
-list1LimitsSigmaMondRaw = FindHDPDFValues[distributionSilverman @ list2\[Delta]VVmodelAll, oneAndTwoSigma];
-plotBlueMondRaw = plotBlue[
-  list2\[Delta]VVmodelAll, 
-  list1LimitsSigmaMondRaw, 
-  {{xmin, xmax - 0.01}, {-0.5, 1.5}}, 
-  PlotRange -> {{0, 0.99}, {-0.5, 1.5}}
-] 
-
-
-distMondRaw =distributionSilverman @ list2\[Delta]VVmodelAll;
 
 plotMondCurves = Plot[
-  Evaluate[\[Delta]VVmodel[rn, #] & /@ Range@175], {rn, 0, 1}, 
+  Evaluate[\[Delta]VVMondExp[rn, #] & /@ Range@ nG], {rn, 0, 1}, 
   PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
 ];
 
 plotMondContours = ContourPlot[
   {
-    PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[1]], 
-    PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[2]]
+    PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[1]], 
+    PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[2]]
   }, 
   {x,0,1}, {y,-0.5, 1.5},  
   ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
@@ -1497,12 +1512,12 @@ plotMondContours = ContourPlot[
 
 Show[
   plotBackground[1.5],
-  plotSigmaRegionsRAR,
+  plotSigmaRegionsRARNoBulge,
   plotMondCurves,
   plotMondContours
 ]
 
-Export["plotdeltaVmondPrincipal.pdf", %];
+Export["plotdeltaVmondExpPrincipal.pdf", %];
 
 
 Clear[a0, rn, datasetDisk, datasetGas, auxTab, list1\[Delta]VVMondExp, list2\[Delta]VVMondExpAux, VVbarExp, aNewtExp, VVMondExp, \[Delta]VVMondExp, numberGalaxies, nG, \[CapitalDelta]VVMondExp, rMax, dataGal];
