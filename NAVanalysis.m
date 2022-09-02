@@ -44,6 +44,8 @@ SetDirectory @ pathOutputDirectory;
   
   These functions were created from the "galaxy data RAR" function (gdR). "RAR" since it is based on the 153 RAR galaxies.
   gdR returns "{}" whenever one considers a galaxy number that is in the original SPARC sample, but not in the RAR sample.
+  
+  phiExp and vExp come from Binney & Tremaine 2nd Ed., eq.(2.164a)
 *)
 
 Clear[rmax, rmin]; 
@@ -59,9 +61,13 @@ listABar[gal_] := {#1, squareSign[#2]/ (kpc #1)} & @@@ gdR[{"Rad", "Vbar"}, gal]
 aBar[R_, gal_] := Interpolation[listABar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic acceleration*)
 aBarn[rn_, gal_] := Interpolation[listABar[gal], Method -> "Spline", InterpolationOrder -> 2][rn rmax[gal]]; (*Baryonic acceleration*)
 
-vExp[R_,logSigma0_,h_]= Block[{y}, 
+vExp[R_, logSigma0_, h_]= Block[{y}, 
   y = R/(2 h);
   kpc Sqrt[4 \[Pi] G0 10^logSigma0 h y^2 (BesselI[0,y] BesselK[0,y] - BesselI[1,y] BesselK[1,y])]
+];
+phiExp[R_, logSigma0_, h_] = Block[{y}, 
+  y = R/(2 h);
+  - 4 \[Pi] G0 10^logSigma0 R (BesselI[0,y] BesselK[1,y] - BesselI[1,y] BesselK[0,y])
 ];
 
 hExpStar[gal_] := datasetExpVdiskNoBulge[gal, "h"];
@@ -69,10 +75,13 @@ logSigma0ExpStar[gal_] := datasetExpVdiskNoBulge[gal, "logSigma0"];
 hExpGas[gal_] := datasetExpVgasNoBulge[gal, "hGas"];
 logSigma0ExpGas[gal_] := datasetExpVgasNoBulge[gal, "logSigma0Gas"];
 
-vStarExp[R_, gal_] := YDcentral vExp[R, logSigma0ExpStar[gal],hExpStar[gal]];
-vGasExp[R_, gal_] :=  vExp[R, logSigma0ExpGas[gal],hExpGas[gal]];
+vStarExp[R_, gal_] := Sqrt[YDcentral] vExp[R, logSigma0ExpStar[gal], hExpStar[gal]];
+vGasExp[R_, gal_] :=  vExp[R, logSigma0ExpGas[gal], hExpGas[gal]];
 vBarExp[R_, gal_] := Sqrt[vStarExp[R,gal]^2+ vGasExp[R,gal]^2];
-vBarExpn[rn_, gal_] := Sqrt[vStarExp[rn rmax122[gal],gal]^2+ vGasExp[rn rmax122[gal],gal]^2];
+vBarExpn[rn_, gal_] := vBarExp[rn rmax122[gal], gal];
+
+phiBarExp[R_, gal_] := YDcentral phiExp[R, logSigma0ExpStar[gal], hExpStar[gal]] + phiExp[R, logSigma0ExpGas[gal], hExpGas[gal]];
+phiBarExpn[rn_, gal_] := phiBarExp[rn rmax122[gal], gal];
 
 (*The definition below depends on rI and rD, which are defined, for each model, 
 in their corresponding NAV efficiency section *)
@@ -1243,12 +1252,13 @@ PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
 ]
 
 
+saveThisPlot = False;
 
 Clear @ list2\[Delta]VVmodel;
 list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]v2Palatini[rn, gal]}, {rn, RandomReal[1, 350]}];
 list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 122, {}], 1];
 
-list2\[Delta]VVmodelAlllimit = Select[list2\[Delta]VVmodelAll, #[[2]] < 5 &]; (*Data points with \[Delta]v larger than 5 are not considered, too far...*)
+list2\[Delta]VVmodelAlllimit = Select[list2\[Delta]VVmodelAll, #[[2]] < 5 &]; (*Data points with \[Delta]v larger than 5 are not considered, too far. This is just an approximation*)
 
 distPalatini = distributionSilverman[list2\[Delta]VVmodelAlllimit, 400]; (*Due to the large dispersion of data points, 400 InpoterpolationPoints are used*)
 pdfValuenSigmaPalatini[n_?NumberQ] := FindHDPDFValues[distPalatini, nSigmaProbability[n]];
@@ -1291,24 +1301,20 @@ Show[
   plotPalatiniContours
 ]
 
-Export["plotdeltaVPalatini.pdf", %];
+savePreviousPlot["plotdeltaVPalatini.pdf"]
 
 
 DistributeDefinitions["NAVbaseCode`"];
 DistributeDefinitions["NAVbaseCode`Private`"];
 
 EchoTiming[
-{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
+{rI[1], rD[1]} = Parallelize[{
   regionIntersection[plotPalatiniSigma[1],1], 
-  regionDifference[plotPalatiniSigma[1],1],
-  regionIntersection[plotPalatiniSigma[2],2],
-  regionDifference[plotPalatiniSigma[2],2]
+  regionDifference[plotPalatiniSigma[1],1]
   }]
 ];
 
 efficiencyNAV[1]
-efficiencyNAV[2]
-efficiencyNAVtotal[]
 
 
 Clear[a0, \[CapitalDelta]VVmodel, VVmodel, \[Delta]VVmodel];
@@ -1425,224 +1431,132 @@ efficiencyNAVtotal[]
 
 Clear[a0];
 
-saveThisPlot = False; (*Change this to True to save it*)
+a0Max = 1.;
+a0Min = 1. 10^-15;
+a0Std = 1.2 10^-13;
 
 aBarExp[R_, gal_] :=  vBarExp[R, gal]^2/(R kpc);
 v2MondExp[R_, gal_] := R kpc aBarExp[R, gal]/(1 - E^-Sqrt[aBarExp[R, gal]/a0]);
 \[CapitalDelta]v2MondExp[R_, gal_] := v2MondExp[R, gal] - vBarExp[R, gal]^2;
 
-\[Delta]v2MondExp[rn_, gal_] := \[CapitalDelta]v2MondExp[rn rmax122[gal], gal]/\[CapitalDelta]v2MondExp[rmax122[gal], gal];
+\[Delta]v2MondExpAux[rn_, gal_] := \[CapitalDelta]v2MondExp[rn rmax122[gal], gal]/\[CapitalDelta]v2MondExp[rmax122[gal], gal];
+
+Clear[table\[Delta]v2MondExp, a0];
+table\[Delta]v2MondExp[a0_] = ParallelTable[{rn, \[Delta]v2MondExpAux[rn, gal]}, {gal, 122}, {rn, 0.01, 1, 0.01} ];
 
 
 
-Clear[a0];
+saveThisPlot = False; (*Change this to True to save it*)
 
-VVMondExp[R_, gal_] :=  R kpc aNewtExp[R, gal]/(1 - E^-Sqrt[aNewtExp[R, gal] / a0]);
+Clear[\[Delta]v2MondExp];
 
-\[CapitalDelta]VVMondExp[R_, gal_] := VVMondExp[R, gal] - VVbarExp[R, gal];
+(\[Delta]v2MondExpMax[rn_, #] = Interpolation[table\[Delta]v2MondExp[a0Max][[#]], Method -> "Spline"][rn])& /@ Range@122;
+Echo[a0Max, "a0 = "];
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRARNoBulge,
+  Plot[
+    Evaluate[\[Delta]v2MondExpMax[rn, #]& /@ Range@122], {rn,0,1}, 
+    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
+  ]
+]
 
-\[Delta]VVMondExpAux[rn_, gal_Integer] := \[CapitalDelta]VVMondExp[rn rMax[gal], gal] / \[CapitalDelta]VVMondExp[rMax[gal], gal];
+savePreviousPlot["plotdeltaVmondExpa01.pdf"];
 
-(*To speed up the plots, it is relevant to define \[Delta]VVMondExp from a list of interpolated functions (list1\[Delta]VVMondExp)*)
-list1\[Delta]VVMondExp[rni_] = Block[
-  {list2\[Delta]VVMondExpAux},
-  list2\[Delta]VVMondExpAux[gali_] := Prepend[
-    Table[{rni,\[Delta]VVMondExpAux[rni, gali]}, {rni, 0.05, 1, 0.05}], 
-    {0,0}
+
+saveThisPlot = False;
+
+(\[Delta]v2MondExpMin[rn_, #] = Interpolation[table\[Delta]v2MondExp[a0Min][[#]], Method -> "Spline"][rn])& /@ Range@122;
+Echo[a0Min, "a0 = "];
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRARNoBulge,
+  Plot[
+    Evaluate[\[Delta]v2MondExpMin[rn, #]& /@ Range@122], {rn,0,1}, 
+    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
+  ]
+]
+
+savePreviousPlot["plotdeltaVmondExp015.pdf"];
+
+
+saveThisPlot = False;
+
+(\[Delta]v2MondExp[rn_, #] = Interpolation[table\[Delta]v2MondExp[a0Std][[#]], Method -> "Spline"][rn]) & /@ Range @ 122;
+
+list2\[Delta]v2MondExp[gal_] := Table[{rn, \[Delta]v2MondExp[rn, gal]}, {rn, RandomReal[1, 70]}];
+
+list2\[Delta]v2MondExpAll = Flatten[list2\[Delta]v2MondExp /@ Range @ 122, 1];
+
+distMondExp = distributionSilverman @ list2\[Delta]v2MondExpAll;
+
+pdfValuenSigmaMondExp[n_?NumberQ] := FindHDPDFValues[distMondExp, nSigmaProbability[n]];
+
+plotMondExpSigma[n_] := plotMondExpSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaMondExp[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
   ];
-  Table[
-    Interpolation[list2\[Delta]VVMondExpAux[gali]][rni], 
-  {gali, nG}
+  ContourPlot[
+    PDF[distMondExp, {x,y}] == pdfValue, 
+    {x, 0, 1}, {y, -1, 5},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
   ]
 ];
 
-\[Delta]VVMondExp[rn_, gal_] :=  list1\[Delta]VVMondExp[rn][[gal]]
+plotMondExpCurves = Plot[
+  Evaluate[\[Delta]v2MondExp[rn, #] & /@ Range @ 122], 
+  {rn, 0, 1}, 
+  PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
+  PlotRange -> All
+];
 
+plotMondExpContours = Show[{plotMondExpSigma[1], plotMondExpSigma[2]}];
 
-
-a0 = 1;
+Echo[a0Std, "a0 = "];
 Show[
   plotBackground[1.5],
   plotSigmaRegionsRARNoBulge,
-  Plot[
-    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
-    PlotStyle -> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
-  ]
+  plotMondExpCurves,
+  plotMondExpContours
 ]
 
-Export["plotdeltaVmondExpa01.pdf", %];
-
-
-a0 = 10^-15;
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[
-    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
-    PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
-  ]
-]
-
-Export["plotdeltaVmondExpa015.pdf", %];
-
-
-a0 = 1.2 10^-13;
-Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]VVMondExp[rn, gal]}, {rn, RandomReal[1,70]}];
-list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ nG, {}], 1];
-distMondExp =distributionSilverman@list2\[Delta]VVmodelAll;
-
-list1LimitsSigmaMondExp = FindHDPDFValues[distMondExp, oneAndTwoSigma];
+savePreviousPlot["plotdeltaVmondExpPrincipal.pdf"];
 
 
 
-plotMondCurves = Plot[
-  Evaluate[\[Delta]VVMondExp[rn, #] & /@ Range@ nG], {rn, 0, 1}, 
-  PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
+DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];
+
+EchoTiming[
+{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
+  regionIntersection[plotMondExpSigma[1],1], 
+  regionDifference[plotMondExpSigma[1],1],
+  regionIntersection[plotMondExpSigma[2],2],
+  regionDifference[plotMondExpSigma[2],2]
+  }]
 ];
 
-plotMondContours = ContourPlot[
-  {
-    PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[1]], 
-    PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 1.5},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
-];
-
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  plotMondCurves,
-  plotMondContours
-]
-
-Export["plotdeltaVmondExpPrincipal.pdf", %];
+efficiencyNAV[1]
+efficiencyNAV[2]
+efficiencyNAVtotal[]
 
 
-Clear[a0, rn, datasetDisk, datasetGas, auxTab, list1\[Delta]VVMondExp, list2\[Delta]VVMondExpAux, VVbarExp, aNewtExp, VVMondExp, \[Delta]VVMondExp, numberGalaxies, nG, \[CapitalDelta]VVMondExp, rMax, dataGal];
-
-datasetDisk = datasetExpVdiskNoBulge;
-datasetGas = datasetExpVgasNoBulge;
-
-numberGalaxies = Length @ datasetDisk;
-nG = numberGalaxies; (*122 galaxies without Bulge*)
-
-VVbarExp[R_, logSigma0_, h_, logSigmaGas0_, hgas_] := 0.5 vExp[R, logSigma0, h]^2 + vExp[R, logSigmaGas0, hgas]^2;
-
-dataGal[gal_] := dataGal[gal] = {
-  datasetDisk[gal, "logSigma0"], 
-  datasetDisk[gal, "h"], 
-  datasetGas[gal, "logSigma0Gas"], 
-  datasetGas[gal, "hGas"]
-};
-
-rMax[gal_] := rMax[gal] = datasetDisk[gal, "rMax"];
-
-VVbarExp[R_, gal_Integer] := VVbarExp[R, Sequence @@ dataGal[gal]];
-
-aNewtExp[R_, gal_] :=  VVbarExp[R, gal]/ (R kpc);
-
-VVMondExp[R_, gal_] :=  R kpc aNewtExp[R, gal]/(1 - E^-Sqrt[aNewtExp[R, gal] / a0]);
-
-\[CapitalDelta]VVMondExp[R_, gal_] := VVMondExp[R, gal] - VVbarExp[R, gal];
-
-\[Delta]VVMondExpAux[rn_, gal_Integer] := \[CapitalDelta]VVMondExp[rn rMax[gal], gal] / \[CapitalDelta]VVMondExp[rMax[gal], gal];
-
-(*To speed up the plots, it is relevant to define \[Delta]VVMondExp from a list of interpolated functions (list1\[Delta]VVMondExp)*)
-list1\[Delta]VVMondExp[rni_] = Block[
-  {list2\[Delta]VVMondExpAux},
-  list2\[Delta]VVMondExpAux[gali_] := Prepend[
-    Table[{rni,\[Delta]VVMondExpAux[rni, gali]}, {rni, 0.05, 1, 0.05}], 
-    {0,0}
-  ];
-  Table[
-    Interpolation[list2\[Delta]VVMondExpAux[gali]][rni], 
-  {gali, nG}
-  ]
-];
-
-\[Delta]VVMondExp[rn_, gal_] :=  list1\[Delta]VVMondExp[rn][[gal]]
+ Clear[phiExpDisk, phiExpGal, phiExpGal, \[CapitalDelta]VVRGGR, \[Delta]VVRGGR]
 
 
+\[CapitalDelta]v2Rggr[R_, gal_] := - v2Infty vBarExp[R, gal]^2 / phiBarExp[R, gal];
 
-a0 = 1;
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[
-    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
-    PlotStyle -> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
-  ]
-]
+\[Delta]v2RggrAux[rn_, gal_Integer] := \[CapitalDelta]v2Rggr[rn rmax122[gal], gal] / \[CapitalDelta]v2Rggr[rmax122[gal], gal];
 
-Export["plotdeltaVmondExpa01.pdf", %];
+table\[Delta]v2Rggr = ParallelTable[{rn, \[Delta]v2RggrAux[rn, gal]}, {gal, 122}, {rn, 0.01, 1, 0.01} ];
 
+(\[Delta]v2Rggr[rn_, #] = Interpolation[table\[Delta]v2Rggr[[#]], Method -> "Spline"][rn]) & /@ Range @ 122;
 
-a0 = 10^-15;
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[
-    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
-    PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
-  ]
-]
-
-Export["plotdeltaVmondExpa015.pdf", %];
-
-
-a0 = 1.2 10^-13;
-Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]VVMondExp[rn, gal]}, {rn, RandomReal[1,70]}];
-list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ nG, {}], 1];
-distMondExp =distributionSilverman@list2\[Delta]VVmodelAll;
-
-list1LimitsSigmaMondExp = FindHDPDFValues[distMondExp, oneAndTwoSigma];
-
-
-
-plotMondCurves = Plot[
-  Evaluate[\[Delta]VVMondExp[rn, #] & /@ Range@ nG], {rn, 0, 1}, 
-  PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
-];
-
-plotMondContours = ContourPlot[
-  {
-    PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[1]], 
-    PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 1.5},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
-];
-
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  plotMondCurves,
-  plotMondContours
-]
-
-Export["plotdeltaVmondExpPrincipal.pdf", %];
-
-
- (*phiDisk and phiGas come from Binney & Tremaine 2nd Ed., eq.(2.164a)*)
-Clear[phiExpDisk, phiExpGal, phiExpGal, \[CapitalDelta]VVRGGR, \[Delta]VVRGGR]
-
-phiExpDisk[R_,logSigma0_,h_] = Block[{y, logSigma0, h, R}, 
-  y = R/(2 h);
-  - 4 \[Pi] G0 10^logSigma0 R (BesselI[0,y] BesselK[1,y] - BesselI[1,y] BesselK[0,y])
-];
-
-phiExpGal[R_, logSigma0_, h_, logSigmaGas0_, hGas_] = 0.5 phiExpDisk[R, logSigma0, h] + phiExpDisk[R, logSigmaGas0, hGas];
-
-phiExpGal[R_, gal_Integer] := phiExpGal[R, gal] = phiExpGal[R, Sequence @@ dataGal[gal]];
-
-\[CapitalDelta]VVRGGR[R_, gal_] := - VVInfty VVbarExp[R, gal] / phiExpGal[R, gal];
-
-\[Delta]VVRGGRAux[rn_, gal_Integer] := \[Delta]VVRGGRAux[rn, gal] =  \[CapitalDelta]VVRGGR[rn rMax[gal], gal] / \[CapitalDelta]VVRGGR[rMax[gal], gal];
-
-(*To speed up the plots, it is relevant to define \[Delta]VVMondExp from a list of interpolated functions (list1\[Delta]VVMondExp)*)
+(*
 l1\[Delta]VVRGGR[rni_] = Block[
   {l2\[Delta]VVRGGRAux},
   l2\[Delta]VVRGGRAux[gali_] := Prepend[
@@ -1655,7 +1569,50 @@ l1\[Delta]VVRGGR[rni_] = Block[
   ]
 ];
 
-\[Delta]VVRGGR[rn_, gal_] :=  l1\[Delta]VVRGGR[rn][[gal]]
+\[Delta]VVRGGR[rn_, gal_] :=  l1\[Delta]VVRGGR[rn][[gal]]*)
+
+
+saveThisPlot = False; 
+
+list2\[Delta]v2Rggr[gal_] := Table[{rn, \[Delta]v2Rggr[rn, gal]}, {rn, RandomReal[1, 70]}]; (*Picks random points along each model curve*)
+
+list2\[Delta]v2RggrAll = Flatten[list2\[Delta]v2Rggr /@ Range @ 122, 1];
+
+distMondExp = distributionSilverman @ list2\[Delta]v2MondExpAll;
+
+pdfValuenSigmaMondExp[n_?NumberQ] := FindHDPDFValues[distMondExp, nSigmaProbability[n]];
+
+plotMondExpSigma[n_] := plotMondExpSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaMondExp[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
+  ];
+  ContourPlot[
+    PDF[distMondExp, {x,y}] == pdfValue, 
+    {x, 0, 1}, {y, -1, 5},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
+  ]
+];
+
+plotMondExpCurves = Plot[
+  Evaluate[\[Delta]v2MondExp[rn, #] & /@ Range @ 122], 
+  {rn, 0, 1}, 
+  PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
+  PlotRange -> All
+];
+
+plotMondExpContours = Show[{plotMondExpSigma[1], plotMondExpSigma[2]}];
+
+Echo[a0Std, "a0 = "];
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRARNoBulge,
+  plotMondExpCurves,
+  plotMondExpContours
+]
 
 
 l2\[Delta]VVRGGRdiscrete[gal_] := Table[{rn, \[Delta]VVRGGR[rn, gal]}, {rn, RandomReal[1,200]}];
