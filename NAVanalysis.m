@@ -1578,73 +1578,59 @@ list2\[Delta]v2Rggr[gal_] := Table[{rn, \[Delta]v2Rggr[rn, gal]}, {rn, RandomRea
 
 list2\[Delta]v2RggrAll = Flatten[list2\[Delta]v2Rggr /@ Range @ 122, 1];
 
-distMondExp = distributionSilverman @ list2\[Delta]v2MondExpAll;
+distRggr = distributionSilverman @ list2\[Delta]v2RggrAll;
 
-pdfValuenSigmaMondExp[n_?NumberQ] := FindHDPDFValues[distMondExp, nSigmaProbability[n]];
+pdfValuenSigmaRggr[n_?NumberQ] := FindHDPDFValues[distRggr, nSigmaProbability[n]];
 
-plotMondExpSigma[n_] := plotMondExpSigma[n] = Block[{pdfValue, contourStyle},
-  pdfValue = pdfValuenSigmaMondExp[n];
+plotRggrSigma[n_] := plotRggrSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaRggr[n];
   Which[
     n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
     n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
     True, Automatic
   ];
   ContourPlot[
-    PDF[distMondExp, {x,y}] == pdfValue, 
+    PDF[distRggr, {x,y}] == pdfValue, 
     {x, 0, 1}, {y, -1, 5},
     PerformanceGoal -> "Quality", 
     ContourStyle -> contourStyle
   ]
 ];
 
-plotMondExpCurves = Plot[
-  Evaluate[\[Delta]v2MondExp[rn, #] & /@ Range @ 122], 
+plotRggrCurves = Plot[
+  Evaluate[\[Delta]v2Rggr[rn, #] & /@ Range @ 122], 
   {rn, 0, 1}, 
   PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
   PlotRange -> All
 ];
 
-plotMondExpContours = Show[{plotMondExpSigma[1], plotMondExpSigma[2]}];
-
-Echo[a0Std, "a0 = "];
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  plotMondExpCurves,
-  plotMondExpContours
-]
-
-
-l2\[Delta]VVRGGRdiscrete[gal_] := Table[{rn, \[Delta]VVRGGR[rn, gal]}, {rn, RandomReal[1,200]}];
-l2\[Delta]VVRGGRdiscreteAll = Flatten[l2\[Delta]VVRGGRdiscrete /@ Range @ nG, 1];
-distRGGR =distributionSilverman @ l2\[Delta]VVRGGRdiscreteAll;
-
-l1LimitsSigmaRGGR = FindHDPDFValues[distRGGR, oneAndTwoSigma];
-
-
-
-plotRGGRCurves = Plot[
-  Evaluate[\[Delta]VVRGGR[rn, #] & /@ Range@ nG], {rn, 0, 1}, 
-  PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
-];
-
-plotRGGRContours = ContourPlot[
-  {
-    PDF[distRGGR, {x,y}] == l1LimitsSigmaRGGR[[1]], 
-    PDF[distRGGR, {x,y}] == l1LimitsSigmaRGGR[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 2.0},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
-];
+plotRggrContours = Show[{plotRggrSigma[1], plotRggrSigma[2]}];
 
 Show[
-  plotBackground[2.0],
+  plotBackground[2],
   plotSigmaRegionsRARNoBulge,
-  plotRGGRCurves,
-  plotRGGRContours
+  plotRggrCurves,
+  plotRggrContours
 ]
 
-Export["plotdeltaVRGGR.pdf", %];
+savePreviousPlot["plotdeltaVRGGR.pdf"];
+
+
+DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];
+
+EchoTiming[
+{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
+  regionIntersection[plotRggrSigma[1],1], 
+  regionDifference[plotRggrSigma[1],1],
+  regionIntersection[plotRggrSigma[2],2],
+  regionDifference[plotRggrSigma[2],2]
+  }]
+];
+
+efficiencyNAV[1]
+efficiencyNAV[2]
+efficiencyNAVtotal[]
 
 
 \[Delta]vP2g[rn_, hn_, fh_, frho_]= (rn ( E^(-(rn/hn))+  frho  fh E^(- fh rn/hn)))/( E^(-(1/hn))+  frho fh  E^(- fh /hn));
