@@ -53,13 +53,11 @@ rmax[gal_] := Last[gdR["Rad", gal]]; (*gal here is the galaxy nunber for the com
 rmin[gal_] := First[gdR["Rad", gal]];
 rmax122[gal_] := datasetExpVdiskNoBulge[gal, "rMax"]; (* same as rmax, but for the sample with 122 galaxies.*)
 
-listVBar[gal_] := gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] &;
+listVBar[gal_] := gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] &; (*Includes YD contribution, as set in NAVbaseCode.*)
 vBar[R_, gal_] := Interpolation[listVBar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic circular velocity*)
-vBarn[rn_, gal_] := Interpolation[listVBar[gal], Method -> "Spline", InterpolationOrder -> 2][rn rmax[gal]]; (*Baryonic circular velocity*)
 
 listABar[gal_] := {#1, squareSign[#2]/ (kpc #1)} & @@@ gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] & ;
 aBar[R_, gal_] := Interpolation[listABar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic acceleration*)
-aBarn[rn_, gal_] := Interpolation[listABar[gal], Method -> "Spline", InterpolationOrder -> 2][rn rmax[gal]]; (*Baryonic acceleration*)
 
 vExp[R_, logSigma0_, h_]= Block[{y}, 
   y = R/(2 h);
@@ -71,23 +69,30 @@ phiExp[R_, logSigma0_, h_] = Block[{y},
 ];
 
 hExpStar[gal_] := datasetExpVdiskNoBulge[gal, "h"];
-logSigma0ExpStar[gal_] := datasetExpVdiskNoBulge[gal, "logSigma0"];
+logSigma0ExpStar[gal_] :=  Log10[YDcentral] + datasetExpVdiskNoBulge[gal, "logSigma0"]; (*The exponential results include use YDcentral=1, hence the correction here.*)
 hExpGas[gal_] := datasetExpVgasNoBulge[gal, "hGas"];
 logSigma0ExpGas[gal_] := datasetExpVgasNoBulge[gal, "logSigma0Gas"];
 
-vStarExp[R_, gal_] := Sqrt[YDcentral] vExp[R, logSigma0ExpStar[gal], hExpStar[gal]];
-vGasExp[R_, gal_] :=  vExp[R, logSigma0ExpGas[gal], hExpGas[gal]];
-vBarExp[R_, gal_] := Sqrt[vStarExp[R,gal]^2+ vGasExp[R,gal]^2];
-vBarExpn[rn_, gal_] := vBarExp[rn rmax122[gal], gal];
+sigmaStarExp[R_, gal_] := 10^logSigma0ExpStar[gal] Exp[-R / hExpStar[gal]]; 
+sigmaGasExp[R_, gal_] := 10^logSigma0ExpGas[gal] Exp[-R / hExpGas[gal]];
+sigmaBarExp[R_, gal_] := sigmaStarExp[R, gal] + sigmaGasExp[R, gal];
 
-phiBarExp[R_, gal_] := YDcentral phiExp[R, logSigma0ExpStar[gal], hExpStar[gal]] + phiExp[R, logSigma0ExpGas[gal], hExpGas[gal]];
-phiBarExpn[rn_, gal_] := phiBarExp[rn rmax122[gal], gal];
+vBarExp[R_, gal_] := Sqrt[
+  vExp[R, logSigma0ExpStar[gal], hExpStar[gal]]^2+ vExp[R, logSigma0ExpGas[gal], hExpGas[gal]]^2
+];
+phiBarExp[R_, gal_] := phiExp[R, logSigma0ExpStar[gal], hExpStar[gal]] + phiExp[R, logSigma0ExpGas[gal], hExpGas[gal]];
+
+massExpInftyStar[gal_] := 2 \[Pi] sigmaStarExp[0, gal] hExpStar[gal]^2 ; (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, \[Infinity]}]*)
+massExpStar[gal_] := 2 \[Pi] sigmaStarExp[0, gal] hExpStar[gal] (hExpStar[gal] - E^(-(rmax122[gal]/hExpStar[gal])) (hExpStar[gal]+rmax122[gal]) ); (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, rmax}]*)
+massExpInftyGas[gal_] := 2 \[Pi] sigmaGasExp[0, gal] hExpGas[gal]^2 ; (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, \[Infinity]}]*)
+massExpGas[gal_] := 2 \[Pi] sigmaGasExp[0, gal] hExpGas[gal] (hExpGas[gal] - E^(-(rmax122[gal]/hExpGas[gal])) (hExpGas[gal]+rmax122[gal]) ); (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, rmax}]*)
+massExpInftyBar[gal_] := massExpInftyGas[gal] + massExpInftyStar[gal];
+massExpBar[gal_] := massExpGas[gal] + massExpStar[gal];
 
 (*The definition below depends on rI and rD, which are defined, for each model, 
 in their corresponding NAV efficiency section *)
 efficiencyNAV[nSigma_] := (Area @ rI[nSigma] - Area @ rD[nSigma])/areaSigma @ plotObsSigma[nSigma];
 efficiencyNAVtotal[] := Mean[{efficiencyNAV[1], efficiencyNAV[2]}];
-
 
 savePreviousPlot[fileName_] := If[saveThisPlot || saveAllPlots, 
   Echo @ Export[ToString @ fileName, %]; saveThisPlot = False
@@ -1633,206 +1638,31 @@ efficiencyNAV[2]
 efficiencyNAVtotal[]
 
 
-\[Delta]vP2g[rn_, hn_, fh_, frho_]= (rn ( E^(-(rn/hn))+  frho  fh E^(- fh rn/hn)))/( E^(-(1/hn))+  frho fh  E^(- fh /hn));
-\[Delta]vPalatini[rn_, gal_] := \[Delta]vP2g[rn, list1hn[[gal]], list1fh[[gal]], list1frho[[gal]]];
-Show[plotBackground[2.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], {rn, 0, 1}, 
-PlotRange -> All, 
-PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
-]
-
-
- (*phiDisk and phiGas come from Binney & Tremaine 2nd Ed., eq.(2.164a)*)
-Clear[phiExpDisk, phiExpGal, phiExpGal, \[CapitalDelta]VVRGGR, \[Delta]VVRGGR]
-
-phiExpDisk[R_,logSigma0_,h_] = Block[{y, logSigma0, h, R}, 
-  y = R/(2 h);
-  - 4 \[Pi] G0 10^logSigma0 R (BesselI[0,y] BesselK[1,y] - BesselI[1,y] BesselK[0,y])
+Clear[\[Alpha], \[Mu], \[Mu]MOG, \[Mu]MOGinfty];
+Off[NIntegrate::precw];
+diffAbs[r_, rprime_, \[Theta]_] = Sqrt[r^2 + rprime^2 - 2 r rprime Cos[\[Theta]]];
+\[CapitalDelta]v2MOG[r_, \[Alpha]_, \[Mu]_, gal_] :=  kpc^2 G0 \[Alpha] r NIntegrate[
+  sigmaBarExp[r, gal]/diffAbs[r, rprime, \[Theta]]^2 (1 - Exp[- \[Mu] diffAbs[r, rprime, \[Theta]]] ( 1 + \[Mu] diffAbs[r, rprime, \[Theta]])) rprime, 
+  {\[Theta], -\[Pi], \[Pi]}, {rprime, 0, 1}, 
+  Exclusions -> "Singularities", 
+  WorkingPrecision -> 30, 
+  PrecisionGoal -> 5, 
+  AccuracyGoal -> Infinity
 ];
 
-phiExpGal[R_, logSigma0_, h_, logSigmaGas0_, hGas_] = 0.5 phiExpDisk[R, logSigma0, h] + phiExpDisk[R, logSigmaGas0, hGas];
-
-phiExpGal[R_, gal_Integer] := phiExpGal[R, gal] = phiExpGal[R, Sequence @@ dataGal[gal]];
-
-\[CapitalDelta]VVRGGR[R_, gal_] := - VVInfty VVbarExp[R, gal] / phiExpGal[R, gal];
-
-\[Delta]VVRGGRAux[rn_, gal_Integer] := \[Delta]VVRGGRAux[rn, gal] =  \[CapitalDelta]VVRGGR[rn rMax[gal], gal] / \[CapitalDelta]VVRGGR[rMax[gal], gal];
-
-(*To speed up the plots, it is relevant to define \[Delta]VVMondExp from a list of interpolated functions (list1\[Delta]VVMondExp)*)
-l1\[Delta]VVRGGR[rni_] = Block[
-  {l2\[Delta]VVRGGRAux},
-  l2\[Delta]VVRGGRAux[gali_] := Prepend[
-    Table[{rni, \[Delta]VVRGGRAux[rni, gali]}, {rni, 0.05, 1, 0.05}], 
-    {0,0}
-  ];
-  Table[
-    Interpolation[l2\[Delta]VVRGGRAux[gali]][rni], 
-  {gali, nG}
-  ]
-];
-
-\[Delta]VVRGGR[rn_, gal_] :=  l1\[Delta]VVRGGR[rn][[gal]]
+\[Delta]v2MOG[rn_, \[Mu]_, gal_] := \[CapitalDelta]v2MOG[rn rmax122[gal], 1, \[Mu], gal]/ \[CapitalDelta]v2MOG[rmax122[gal], 1, \[Mu], gal]; (*\[Alpha] was used here to be 1, \[Delta]v2MOG is independ from \[Alpha]*)
+\[Mu]MOG[gal_] := \[Mu]MOG[gal] = (6.25 10^3)/Sqrt[massExpBar[gal]];
+\[Mu]MOGinfty[gal_] := \[Mu]MOGinfty[gal] = (6.25 10^3)/Sqrt[massExpInftyBar[gal]];
+\[Mu]MOG10[gal_] := \[Mu]MOG10[gal] = (6.25 10^4)/Sqrt[massExpBar[gal]];
 
 
-\[Delta]Vobs1\[Sigma]L[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[1]][xn]; (*L stands for lower limit*)
-\[Delta]Vobs1\[Sigma]U[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[2]][xn]; (*U stands for upper limit*)
-\[Delta]Vobs2\[Sigma]L[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[3]][xn];
-\[Delta]Vobs2\[Sigma]U[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[4]][xn];
 
-positivePart[x_] := HeavisideTheta[x] x;
+Clear[table\[Delta]v2MOG];
+table\[Delta]v2MOG[\[Mu]_, gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu], gal]}, {rn, 0.01, 1, 0.0198} ]; (*0.198 for 50 steps per galaxy*)
 
-Clear[areaObs];
-areaObs[numberOfSigmas_] := Which[
-  numberOfSigmas == 1, NIntegrate[\[Delta]Vobs1\[Sigma]U[xn] - \[Delta]Vobs1\[Sigma]L[xn], {xn, 0.2, 0.9}],
-  numberOfSigmas == 2, NIntegrate[\[Delta]Vobs2\[Sigma]U[xn] - \[Delta]Vobs2\[Sigma]L[xn], {xn, 0.2, 0.9}],
-  True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
-];
-  
-efficiencyNAV[ModelSigmaL_, ModelSigmaU_, numberOfSigmas_Integer] := Block[ (*There is another efficiencyNAV function with different number of arguments.*)
-  {
-    areaIntersection,
-    areaModelOut,
-    xn, (*equivalent to rn, used to avoid definition clash*)
-    \[Delta]VobsL,
-    \[Delta]VobsU
-  },
-  
-  Which[
-    numberOfSigmas == 1, \[Delta]VobsL = \[Delta]Vobs1\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs1\[Sigma]U,
-    numberOfSigmas == 2, \[Delta]VobsL = \[Delta]Vobs2\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs2\[Sigma]U,
-    True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
-  ];
-  
-  areaIntersection = NIntegrate[
-    Min[\[Delta]VobsU[xn], ModelSigmaU[xn]] - Max[\[Delta]VobsL[xn], ModelSigmaL[xn]],
-    {xn, 0.2, 0.9}
-  ] / areaObs[numberOfSigmas];
-  
-  areaModelOut = NIntegrate[
-    positivePart[ModelSigmaU[xn] - \[Delta]VobsU[xn]] + positivePart[\[Delta]VobsL[xn] - ModelSigmaL[xn]],
-    {xn, 0.2, 0.9}
-  ]/ areaObs[numberOfSigmas];
-  
-  {areaIntersection - areaModelOut, areaIntersection, areaModelOut}
-];
-
-Clear @ efficiencyNAVtotal; (*There is another efficiencyNAVtotal function with different number of arguments.*)
-efficiencyNAVtotal[ModelSigmaL1_, ModelSigmaU1_, ModelSigmaL2_, ModelSigmaU2_] := (
-  efficiencyNAV[ModelSigmaL1, ModelSigmaU1, 1] + 
-  efficiencyNAV[ModelSigmaL2, ModelSigmaU2, 2]
-) / 2;
-
-
-(* ContourPlots with the limiting sigma regions WITHOUT BULGE *)
-Clear[plotObsSigma, plotRGGRSigma, plotMONDRawSigma, plotPalatiniSigma, plotMONDExpSigma];
-plotObsSigma[n_] := plotObsSigma[n] = ContourPlot[
-  PDF[distRARRotNoBulge, {x,y}] == list1LimitsNoBulge[[n]], {x, 0, 1}, {y, -0.5, 2},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-plotPalatiniSigma[n_] := plotPalatiniSigma[n] = ContourPlot[
-  PDF[distPalatini, {x,y}] == list1LimitsSigmaPalatini[[n]], {x, 0, 1}, {y, -1, 5},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-plotMONDRawSigma[n_] := plotMONDRawSigma[n] = ContourPlot[
-  PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[n]], {x, 0, 1}, {y, -0.5, 2},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-plotMONDExpSigma[n_] := plotMONDExpSigma[n] = ContourPlot[
-  PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[n]], {x, 0, 1}, {y, -0.5, 2},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-plotRGGRSigma[n_] := plotRGGRSigma[n] = ContourPlot[
-  PDF[distRGGR, {x,y}] == l1LimitsSigmaRGGR[[n]], {x, 0, 1}, {y, -0.5, 2.5},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-
-
-(*List of points, instead of ContourPlots, for the models whose limiting \[Sigma] regions come from functions*)
-Clear[pointsBurkertSigma];
-pointsBurkertSigma[n_] := pointsBurkertSigma[n] = {
-  Table[{rn, \[Delta]Vbrkt[rn, rcnLower @ n]}, {rn, 0.01, 1, 0.001}],
-  Table[{rn, \[Delta]Vbrkt[rn, rcnUpper @ n]}, {rn, 0.01, 1, 0.001}]
-};
-
-(* Functions to compute the NAV Efficiency *)
-listExtractPoints[plot_] := Cases[
-  Normal @ FullForm @ First @ plot,
-  Line[pts_] :> pts,
-  Infinity
-];
-
-
-Clear[polygonPrepare];
-polygonPrepare[listExtractPoints_] := Block[
-  {pointsAux, transformation},
-  If[Length[listExtractPoints] == 2, Null, Echo["Data must be a list with two components, one for each curve."]; Abort[]];
-  If[
-    Round[listExtractPoints[[1,1,1]], 1] == Round[listExtractPoints[[2,1,1]], 1], (*Check if both parts of the data start either close to 1 or to 0.*)
-    transformation = Reverse, (*If both parts start together, one will need to be reversed*)
-    transformation = Identity
-  ];
-  pointsAux = Join[First @ listExtractPoints, transformation @ Last @ listExtractPoints ];
-  Cases[pointsAux, {x_,y_} /; 0.2 < x < 0.9]
-];
-
-Clear[areaSigma];
-areaSigma[plot_Graphics] := Area @ Polygon @ polygonPrepare @ listExtractPoints @ plot;
-
-areaSigma[points_List] := Area @ Polygon @ polygonPrepare @ points ;
-
-(*Running the plots definitions*)
-Echo["Running the plots..."]; 
-EchoTiming @ Table[{plotRGGRSigma[n], plotMONDExpSigma[n], plotMONDRawSigma[n], plotPalatiniSigma[n], plotObsSigma[n]}, {n,1,2}];
-
-  
-
-
-Clear[regionIntersection];
-regionIntersection[plotModelSigma_, nSigma_] := RegionIntersection[
-  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
-  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
-];
-
-Clear[regionDifference];
-regionDifference[plotModelSigma_, nSigma_] := RegionDifference[
-  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
-  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
-];
-
-(* Execution *)
-
-CloseKernels[];
-LaunchKernels[];
-
-DistributeDefinitions[regionIntersection, regionDifference, plotMONDRawSigma[1], plotMONDExpSigma[1], plotRGGRSigma[1], plotPalatiniSigma[1], plotMONDRawSigma[2], plotMONDExpSigma[2], plotRGGRSigma[2], plotPalatiniSigma[2]];
-
-listPlotsSubmit1 = {plotMONDRawSigma, plotMONDExpSigma, plotRGGRSigma, plotPalatiniSigma};
-listPlotsSubmit2 = {plotMONDRawSigma, plotMONDExpSigma, plotRGGRSigma};
-
-submit = Flatten[{
-  ParallelSubmit[regionIntersection[#[1], 1]] & /@ listPlotsSubmit1, 
-  ParallelSubmit[regionIntersection[#[2], 2]] & /@ listPlotsSubmit2, 
-  ParallelSubmit[regionDifference[#[1], 1]] & /@ listPlotsSubmit1, 
-  ParallelSubmit[regionDifference[#[2], 2]] & /@ listPlotsSubmit2 
-}]
-
-Echo["Computing regions intersections and differences... It may take a few minutes."];
-EchoTiming[answer = WaitAll[submit]];
-
-listModels1 = {MONDRaw, MONDExp, RGGR, Palatini};
-listModels2 = {MONDRaw, MONDExp, RGGR};
-
-Evaluate @ Flatten[{
-  rI[#, 1] & /@ listModels1,
-  rI[#, 2] & /@ listModels2,
-  rD[#, 1] & /@ listModels1,
-  rD[#, 2] & /@ listModels2
-}] = answer;
-
-Clear[efficiencyNAV, efficiencyNAVtotal];
-efficiencyNAV[model_, nSigma_] := (Area @ rI[model, nSigma] - Area @ rD[model, nSigma]) / areaSigma @ plotObsSigma[nSigma];
-efficiencyNAVtotal[model_] := (efficiencyNAV[model, 1] + efficiencyNAV[model, 2])/2;
+table\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOG[gal], gal]}, {rn, 0.01, 1, 0.0198} ];
+table\[Delta]v2MOGinfty[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGinfty[gal], gal]}, {rn, 0.01, 1, 0.0198} ];
+table\[Delta]v2MOG10[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOG10[gal], gal]}, {rn, 0.01, 1, 0.0198} ]
 
 
 

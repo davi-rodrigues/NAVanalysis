@@ -97,7 +97,7 @@ Export["headerAux.txt", {
   "# ",
   "# The complete Table B1 data: the best fit results of an exponential model for the stellar component of 122 SPARC galaxies.",
   "# First column: best-fit disk scale length (h).",
-  "# Second column: best-fit central surface brightness (logSigma0).",
+  "# Second column: best-fit central surface brightness (logSigma0) for Upsilon = 1.",
   "# Third column: normalized disk scale length (hn).",
   "# Fourth column: the minimum chi-squared value (Chi2).",
   "# Fifth column: the number of galaxy data points that were used for the fit (dataPoints).", 

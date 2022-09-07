@@ -153,9 +153,6 @@ list1logSigmaGas0 = Normal @ Global`datasetExpVgasNoBulge[All, "logSigma0Gas"];
 list1frho = 10^list1logSigmaGas0 / (YDcentral 10^list1logSigma0); (* These are central densities, and the YDcentral correction is necessary since the exponential fits were done with Y = 1*)
 list1fh = list1hn / list1hGasn;
 
-\[Rho]stars[rn_, gal_] := YDcentral 10^list1logSigma0[[gal]] E^(- rn/list1hn[[gal]]); (* YDcentral appears since the exponential approximations are based on the stellar rotation curves, which use Y = 1.*)
-\[Rho]gas[rn_, gal_] :=  10^list1logSigmaGas0[[gal]] E^(- rn/list1hGasn[[gal]]);
-\[Rho]bar[rn_, gal_] :=  \[Rho]stars[rn, gal] + \[Rho]gas[rn, gal];
 
 (* ::Subsection::Closed:: *)
 (*Rotmod data (individual galaxy data)*)

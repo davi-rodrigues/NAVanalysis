@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[    396020,       7916]
-NotebookOptionsPosition[    392920,       7854]
-NotebookOutlinePosition[    393318,       7870]
-CellTagsIndexPosition[    393275,       7867]
+NotebookDataLength[    396028,       7914]
+NotebookOptionsPosition[    392928,       7852]
+NotebookOutlinePosition[    393326,       7868]
+CellTagsIndexPosition[    393283,       7865]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -508,7 +508,7 @@ Cell[BoxData[{
               RowBox[{"1", ",", "y"}], "]"}], " ", 
              RowBox[{"BesselK", "[", 
               RowBox[{"1", ",", "y"}], "]"}]}]}], ")"}]}], "]"}]}]}]}], "\n", 
-     "]"}]}], ";"}], "\[IndentingNewLine]"}], "\n", 
+     "]"}]}], ";"}], "\n"}], "\[IndentingNewLine]", 
  RowBox[{
   RowBox[{
    RowBox[{
@@ -3671,8 +3671,8 @@ dark matter or modified gravity models\>\"", ",", "\n", "  ",
 exponential model for the stellar component of 122 SPARC galaxies.\>\"", ",", 
        "\n", "  ", "\"\<# First column: best-fit disk scale length (h).\>\"", 
        ",", "\n", "  ", 
-       "\"\<# Second column: best-fit central surface brightness (logSigma0).\
-\>\"", ",", "\n", "  ", 
+       "\"\<# Second column: best-fit central surface brightness (logSigma0) \
+for Upsilon = 1.\>\"", ",", "\n", "  ", 
        "\"\<# Third column: normalized disk scale length (hn).\>\"", ",", 
        "\n", "  ", 
        "\"\<# Fourth column: the minimum chi-squared value (Chi2).\>\"", ",", 
@@ -3700,18 +3700,16 @@ for the fit (dataPoints).\>\"", ",", " ", "\n", "  ", "\"\<# \>\"", ",", "\n",
   "\n"}], "\n", 
  RowBox[{
   RowBox[{
-   RowBox[{
-   "Run", "[", 
-    "\"\<cat headerAux.txt StellarExponentialBestFitAux.tsv > \
-StellarExponentialBestFit.tsv\>\"", "]"}], ";"}], " ", 
+  "Run", "[", 
+   "\"\<cat headerAux.txt StellarExponentialBestFitAux.tsv > \
+StellarExponentialBestFit.tsv\>\"", "]"}], ";", " ", 
   RowBox[{"(*", 
    RowBox[{
     RowBox[{
     "It", " ", "is", " ", "only", " ", "guaranteed", " ", "to", " ", "work", 
      " ", "in", " ", "Unix", " ", 
      RowBox[{"systems", ".", " ", "Sorry"}], " ", "Windows"}], "..."}], 
-   "*)"}], "\n"}], "\n", 
- RowBox[{
+   "*)"}], "\n", "\n", 
   RowBox[{"DeleteFile", "[", "\"\<headerAux.txt\>\"", "]"}], ";"}], "\n", 
  RowBox[{
   RowBox[{
@@ -3734,9 +3732,9 @@ StellarExponentialBestFit.tsv\>\"", "]"}], ";"}], " ",
    3.8559276230417433`*^9, 3.855927689257972*^9}, {3.855927835610734*^9, 
    3.855927835689125*^9}, {3.855940646495206*^9, 3.8559406844060926`*^9}, {
    3.868211402122223*^9, 3.868211402470541*^9}, {3.868211439438457*^9, 
-   3.8682114774867077`*^9}},
- CellLabel->
-  "In[122]:=",ExpressionUUID->"eb6989f0-d120-450c-b8d4-31284397365b"],
+   3.8682114774867077`*^9}, {3.871394024889122*^9, 
+   3.8713940332016077`*^9}},ExpressionUUID->"eb6989f0-d120-450c-b8d4-\
+31284397365b"],
 
 Cell[CellGroupData[{
 
@@ -7209,7 +7207,7 @@ Chi2" -> 28.901214574740735`, "Chi2red" -> 2.2231703519031334`,
                     TypeSystem`NestedGrid`PackagePrivate`checkInteractivity[
                     TypeSystem`NestedGrid`PackagePrivate`$state$$], 
                     TypeSystem`NestedGrid`PackagePrivate`$vPos$$ = 
-                    Clip[TypeSystem`NestedGrid`PackagePrivate`$vPos$$ + (-20) 
+                    Clip[TypeSystem`NestedGrid`PackagePrivate`$vPos$$ - 20 
                     If[True, 122, 1], {1, 122 - -20 + 1}]; 
                     TypeSystem`NestedGrid`PackagePrivate`updateState[
                     TypeSystem`NestedGrid`PackagePrivate`$state$$, 
@@ -7258,7 +7256,7 @@ Chi2" -> 28.901214574740735`, "Chi2red" -> 2.2231703519031334`,
                     TypeSystem`NestedGrid`PackagePrivate`checkInteractivity[
                     TypeSystem`NestedGrid`PackagePrivate`$state$$], 
                     TypeSystem`NestedGrid`PackagePrivate`$vPos$$ = 
-                    Clip[TypeSystem`NestedGrid`PackagePrivate`$vPos$$ + (-20) 
+                    Clip[TypeSystem`NestedGrid`PackagePrivate`$vPos$$ - 20 
                     If[False, 122, 1], {1, 122 - -20 + 1}]; 
                     TypeSystem`NestedGrid`PackagePrivate`updateState[
                     TypeSystem`NestedGrid`PackagePrivate`$state$$, 
@@ -7853,7 +7851,7 @@ GasExponentialBestFit.tsv\>\"", "]"}], ";"}], " ",
 }, Open  ]]
 },
 WindowSize->{1402, 911},
-WindowMargins->{{Automatic, 536}, {Automatic, 41}},
+WindowMargins->{{Automatic, 441}, {Automatic, 20}},
 FrontEndVersion->"13.0 for Mac OS X x86 (64-bit) (February 4, 2022)",
 StyleDefinitions->"Default.nb",
 ExpressionUUID->"cf8714f9-527a-4919-be50-26a66ad5a75b"
@@ -7887,34 +7885,34 @@ Cell[37950, 850, 143, 3, 32, "EchoTiming",ExpressionUUID->"31e27a0b-7a61-429b-aa
 }, Open  ]],
 Cell[38108, 856, 147546, 2799, 787, "Output",ExpressionUUID->"cc5bc813-9258-4c87-ad4d-69b170344fde"]
 }, Open  ]],
-Cell[185669, 3658, 3570, 80, 594, "Code",ExpressionUUID->"eb6989f0-d120-450c-b8d4-31284397365b"],
+Cell[185669, 3658, 3584, 78, 594, "Code",ExpressionUUID->"eb6989f0-d120-450c-b8d4-31284397365b"],
 Cell[CellGroupData[{
-Cell[189264, 3742, 647, 9, 67, "Subsection",ExpressionUUID->"de74a264-58f5-43c7-984c-ea997979c5b7"],
+Cell[189278, 3740, 647, 9, 67, "Subsection",ExpressionUUID->"de74a264-58f5-43c7-984c-ea997979c5b7"],
 Cell[CellGroupData[{
-Cell[189936, 3755, 7305, 181, 1102, "Code",ExpressionUUID->"ec0f070d-9a86-48e6-bf44-67412cdcb918"],
+Cell[189950, 3753, 7305, 181, 1102, "Code",ExpressionUUID->"ec0f070d-9a86-48e6-bf44-67412cdcb918"],
 Cell[CellGroupData[{
-Cell[197266, 3940, 290, 9, 32, "Echo",ExpressionUUID->"423d2976-76c8-4727-a5ce-83ab44fa4b14"],
-Cell[197559, 3951, 290, 9, 32, "Echo",ExpressionUUID->"90391275-cbf3-45ed-ab2f-452c30db4943"]
+Cell[197280, 3938, 290, 9, 32, "Echo",ExpressionUUID->"423d2976-76c8-4727-a5ce-83ab44fa4b14"],
+Cell[197573, 3949, 290, 9, 32, "Echo",ExpressionUUID->"90391275-cbf3-45ed-ab2f-452c30db4943"]
 }, Open  ]],
-Cell[197864, 3963, 34564, 770, 333, "Output",ExpressionUUID->"385fc160-1e1f-424f-b6a3-4652ebd03fdd"]
+Cell[197878, 3961, 34564, 770, 333, "Output",ExpressionUUID->"385fc160-1e1f-424f-b6a3-4652ebd03fdd"]
 }, Open  ]]
 }, Open  ]]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[232489, 4740, 593, 9, 84, "Section",ExpressionUUID->"b313ec39-f225-4fa4-8ab9-eb109cd9a57a"],
-Cell[233085, 4751, 876, 16, 186, "Code",ExpressionUUID->"e7ffcf43-b4d0-4e39-b0b6-96dff7bdf763"],
+Cell[232503, 4738, 593, 9, 84, "Section",ExpressionUUID->"b313ec39-f225-4fa4-8ab9-eb109cd9a57a"],
+Cell[233099, 4749, 876, 16, 186, "Code",ExpressionUUID->"e7ffcf43-b4d0-4e39-b0b6-96dff7bdf763"],
 Cell[CellGroupData[{
-Cell[233986, 4771, 296, 5, 56, "Subsubsection",ExpressionUUID->"b96595ee-7bc1-49eb-ae18-c539238e12db"],
-Cell[234285, 4778, 6428, 141, 498, "Code",ExpressionUUID->"6ccef853-23ff-4ade-ace8-5e55603ecafc"],
+Cell[234000, 4769, 296, 5, 56, "Subsubsection",ExpressionUUID->"b96595ee-7bc1-49eb-ae18-c539238e12db"],
+Cell[234299, 4776, 6428, 141, 498, "Code",ExpressionUUID->"6ccef853-23ff-4ade-ace8-5e55603ecafc"],
 Cell[CellGroupData[{
-Cell[240738, 4923, 908, 23, 186, "Code",ExpressionUUID->"bfc0f34f-3122-4203-a11d-6c54f2e37d9e"],
+Cell[240752, 4921, 908, 23, 186, "Code",ExpressionUUID->"bfc0f34f-3122-4203-a11d-6c54f2e37d9e"],
 Cell[CellGroupData[{
-Cell[241671, 4950, 194, 4, 32, "Echo",ExpressionUUID->"c1a9ac9a-bbf3-496e-9ef5-177e2b01fbdb"],
-Cell[241868, 4956, 143, 3, 32, "EchoTiming",ExpressionUUID->"e617e9c5-7e8c-4545-9907-3d0d64dbda13"]
+Cell[241685, 4948, 194, 4, 32, "Echo",ExpressionUUID->"c1a9ac9a-bbf3-496e-9ef5-177e2b01fbdb"],
+Cell[241882, 4954, 143, 3, 32, "EchoTiming",ExpressionUUID->"e617e9c5-7e8c-4545-9907-3d0d64dbda13"]
 }, Open  ]],
-Cell[242026, 4962, 147290, 2805, 787, "Output",ExpressionUUID->"dba7d471-0435-48ee-90b5-ee4a0f96b42b"]
+Cell[242040, 4960, 147284, 2805, 787, "Output",ExpressionUUID->"dba7d471-0435-48ee-90b5-ee4a0f96b42b"]
 }, Open  ]],
-Cell[389331, 7770, 3549, 79, 594, "Code",ExpressionUUID->"8cdd88f5-b1da-4f3f-9b7a-63a5e96985ab"]
+Cell[389339, 7768, 3549, 79, 594, "Code",ExpressionUUID->"8cdd88f5-b1da-4f3f-9b7a-63a5e96985ab"]
 }, Open  ]]
 }, Open  ]]
 }, Open  ]]
