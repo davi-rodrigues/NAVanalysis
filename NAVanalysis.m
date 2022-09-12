@@ -76,18 +76,25 @@ logSigma0ExpGas[gal_] := datasetExpVgasNoBulge[gal, "logSigma0Gas"];
 sigmaStarExp[R_, gal_] := 10^logSigma0ExpStar[gal] Exp[-R / hExpStar[gal]]; 
 sigmaGasExp[R_, gal_] := 10^logSigma0ExpGas[gal] Exp[-R / hExpGas[gal]];
 sigmaBarExp[R_, gal_] := sigmaStarExp[R, gal] + sigmaGasExp[R, gal];
+sigmaBarExpf[R_, gal_, fgas_] := sigmaStarExp[R, gal] + fgas sigmaGasExp[R, gal];
 
 vBarExp[R_, gal_] := Sqrt[
   vExp[R, logSigma0ExpStar[gal], hExpStar[gal]]^2+ vExp[R, logSigma0ExpGas[gal], hExpGas[gal]]^2
 ];
 phiBarExp[R_, gal_] := phiExp[R, logSigma0ExpStar[gal], hExpStar[gal]] + phiExp[R, logSigma0ExpGas[gal], hExpGas[gal]];
 
+massExpStar[gal_, rEnd_] := 2 \[Pi] sigmaStarExp[0, gal] hExpStar[gal] (hExpStar[gal] - E^(-(rEnd/hExpStar[gal])) (hExpStar[gal]+rEnd) ); (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, rEnd}]*)
+massExpStar[gal_] := massExpStar[gal, rmax122[gal]];
 massExpInftyStar[gal_] := 2 \[Pi] sigmaStarExp[0, gal] hExpStar[gal]^2 ; (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, \[Infinity]}]*)
-massExpStar[gal_] := 2 \[Pi] sigmaStarExp[0, gal] hExpStar[gal] (hExpStar[gal] - E^(-(rmax122[gal]/hExpStar[gal])) (hExpStar[gal]+rmax122[gal]) ); (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, rmax}]*)
+
+massExpGas[gal_, rEnd_] := 2 \[Pi] sigmaGasExp[0, gal] hExpGas[gal] (hExpGas[gal] - E^(-(rEnd/hExpGas[gal])) (hExpGas[gal]+rEnd) ); 
 massExpInftyGas[gal_] := 2 \[Pi] sigmaGasExp[0, gal] hExpGas[gal]^2 ; (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, \[Infinity]}]*)
-massExpGas[gal_] := 2 \[Pi] sigmaGasExp[0, gal] hExpGas[gal] (hExpGas[gal] - E^(-(rmax122[gal]/hExpGas[gal])) (hExpGas[gal]+rmax122[gal]) ); (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, rmax}]*)
-massExpInftyBar[gal_] := massExpInftyGas[gal] + massExpInftyStar[gal];
-massExpBar[gal_] := massExpGas[gal] + massExpStar[gal];
+massExpGas[gal_] := massExpGas[gal, rmax122[gal]];
+
+massExpInftyBar[gal_] := massExpInftyStar[gal] + massExpInftyGas[gal];
+massExpBar[gal_] :=  massExpStar[gal] + massExpGas[gal];
+massExpBar[gal_, rEndStar_, rEndGas_] := massExpStar[gal, rEndStar] + massExpGas[gal, rEndGas];
+massExpBar[gal_, rEndStar_, rEndGas_, fgas_] := massExpStar[gal, rEndStar] + fgas massExpGas[gal, rEndGas];
 
 (*The definition below depends on rI and rD, which are defined, for each model, 
 in their corresponding NAV efficiency section *)
@@ -1641,8 +1648,9 @@ efficiencyNAVtotal[]
 Clear[\[Alpha], \[Mu], \[Mu]MOG, \[Mu]MOGinfty];
 Off[NIntegrate::precw];
 diffAbs[r_, rprime_, \[Theta]_] = Sqrt[r^2 + rprime^2 - 2 r rprime Cos[\[Theta]]];
-\[CapitalDelta]v2MOG[r_, \[Alpha]_, \[Mu]_, gal_] :=  kpc^2 G0 \[Alpha] r NIntegrate[
-  sigmaBarExp[r, gal]/diffAbs[r, rprime, \[Theta]]^2 (1 - Exp[- \[Mu] diffAbs[r, rprime, \[Theta]]] ( 1 + \[Mu] diffAbs[r, rprime, \[Theta]])) rprime, 
+
+\[CapitalDelta]v2MOG[r_, \[Alpha]_, \[Mu]_, gal_, fgas_] :=  kpc^2 G0 \[Alpha] r NIntegrate[
+  sigmaBarExpf[r, gal, 1.15]/diffAbs[r, rprime, \[Theta]]^2 (1 - Exp[- \[Mu] diffAbs[r, rprime, \[Theta]]] ( 1 + \[Mu] diffAbs[r, rprime, \[Theta]])) rprime, 
   {\[Theta], -\[Pi], \[Pi]}, {rprime, 0, 1}, 
   Exclusions -> "Singularities", 
   WorkingPrecision -> 30, 
@@ -1652,8 +1660,9 @@ diffAbs[r_, rprime_, \[Theta]_] = Sqrt[r^2 + rprime^2 - 2 r rprime Cos[\[Theta]]
 
 \[Delta]v2MOG[rn_, \[Mu]_, gal_] := \[CapitalDelta]v2MOG[rn rmax122[gal], 1, \[Mu], gal]/ \[CapitalDelta]v2MOG[rmax122[gal], 1, \[Mu], gal]; (*\[Alpha] was used here to be 1, \[Delta]v2MOG is independ from \[Alpha]*)
 \[Mu]MOG[gal_] := \[Mu]MOG[gal] = (6.25 10^3)/Sqrt[massExpBar[gal]];
+\[Mu]MOG[gal_, rStarEnd_, rGasEnd_, fgas_] := (6.25 10^3)/Sqrt[massExpBar[gal, rStarEnd, rGasEnd, fgas]];
+\[Mu]MOGstd[gal_] := \[Mu]MOG[gal, 4.5 hExpStar[gal], rmax122[gal], 1.15];
 \[Mu]MOGinfty[gal_] := \[Mu]MOGinfty[gal] = (6.25 10^3)/Sqrt[massExpInftyBar[gal]];
-\[Mu]MOG10[gal_] := \[Mu]MOG10[gal] = (6.25 10^4)/Sqrt[massExpBar[gal]];
 
 
 
@@ -1662,7 +1671,7 @@ table\[Delta]v2MOG[\[Mu]_, gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu], gal]}, {
 
 table\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOG[gal], gal]}, {rn, 0.01, 1, 0.0198} ];
 table\[Delta]v2MOGinfty[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGinfty[gal], gal]}, {rn, 0.01, 1, 0.0198} ];
-table\[Delta]v2MOG10[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOG10[gal], gal]}, {rn, 0.01, 1, 0.0198} ]
+table\[Delta]v2MOGstd[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGstd[gal], gal]}, {rn, 0.01, 1, 0.0198} ]
 
 
 
