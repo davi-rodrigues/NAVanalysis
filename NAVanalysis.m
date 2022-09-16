@@ -31,75 +31,14 @@ datasetExpVdiskNoBulge = Import[FileNameJoin[{pathOutputDirectory, "datasetExpVd
 datasetExpVgasNoBulge = Import[FileNameJoin[{pathOutputDirectory, "datasetExpVgasNoBulge.m"}]]; (*The same as above, but for the gas.*)
 
 SetDirectory @ pathBaseDirectory;
+
 Needs @ "NAVbaseCode`";
 Get @ "NAVoptions.wl";
-Print["Starting NAVobservational..."];
 Get @ "NAVobservational.wl";
+Get @ "NAVauxiliaryFunctions.wl";
 Get["MDC14aux.mx", Path -> pathAuxDirectory] // Quiet; (*If something goes wrong, this file will be generated*)
 
 SetDirectory @ pathOutputDirectory;
-
-(*
-  FUNCTIONS DEFINITIONS THAT ARE BOTH USEFUL AND WORK AS SIMPLE EXAMPLES.
-  
-  These functions were created from the "galaxy data RAR" function (gdR). "RAR" since it is based on the 153 RAR galaxies.
-  gdR returns "{}" whenever one considers a galaxy number that is in the original SPARC sample, but not in the RAR sample.
-  
-  phiExp and vExp come from Binney & Tremaine 2nd Ed., eq.(2.164a)
-*)
-
-Clear[rmax, rmin]; 
-rmax[gal_] := Last[gdR["Rad", gal]]; (*gal here is the galaxy nunber for the complete sample with 175 galaxies *)
-rmin[gal_] := First[gdR["Rad", gal]];
-rmax122[gal_] := datasetExpVdiskNoBulge[gal, "rMax"]; (* same as rmax, but for the sample with 122 galaxies.*)
-
-listVBar[gal_] := gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] &; (*Includes YD contribution, as set in NAVbaseCode.*)
-vBar[R_, gal_] := Interpolation[listVBar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic circular velocity*)
-
-listABar[gal_] := {#1, squareSign[#2]/ (kpc #1)} & @@@ gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] & ;
-aBar[R_, gal_] := Interpolation[listABar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic acceleration*)
-
-vExp[R_, logSigma0_, h_]= Block[{y}, 
-  y = R/(2 h);
-  kpc Sqrt[4 \[Pi] G0 10^logSigma0 h y^2 (BesselI[0,y] BesselK[0,y] - BesselI[1,y] BesselK[1,y])]
-];
-phiExp[R_, logSigma0_, h_] = Block[{y}, 
-  y = R/(2 h);
-  - 4 \[Pi] G0 10^logSigma0 R (BesselI[0,y] BesselK[1,y] - BesselI[1,y] BesselK[0,y])
-];
-
-hExpStar[gal_] := datasetExpVdiskNoBulge[gal, "h"];
-logSigma0ExpStar[gal_] :=  Log10[YDcentral] + datasetExpVdiskNoBulge[gal, "logSigma0"]; (*The exponential results include use YDcentral=1, hence the correction here.*)
-hExpGas[gal_] := datasetExpVgasNoBulge[gal, "hGas"];
-logSigma0ExpGas[gal_] := datasetExpVgasNoBulge[gal, "logSigma0Gas"];
-
-sigmaStarExp[R_, gal_] := 10^logSigma0ExpStar[gal] Exp[-R / hExpStar[gal]]; 
-sigmaGasExp[R_, gal_] := 10^logSigma0ExpGas[gal] Exp[-R / hExpGas[gal]];
-sigmaBarExp[R_, gal_] := sigmaStarExp[R, gal] + sigmaGasExp[R, gal];
-sigmaBarExpf[R_, gal_, fgas_] := sigmaStarExp[R, gal] + fgas sigmaGasExp[R, gal];
-
-vBarExp[R_, gal_] := Sqrt[
-  vExp[R, logSigma0ExpStar[gal], hExpStar[gal]]^2+ vExp[R, logSigma0ExpGas[gal], hExpGas[gal]]^2
-];
-phiBarExp[R_, gal_] := phiExp[R, logSigma0ExpStar[gal], hExpStar[gal]] + phiExp[R, logSigma0ExpGas[gal], hExpGas[gal]];
-
-massExpStar[gal_, rEnd_] := 2 \[Pi] sigmaStarExp[0, gal] hExpStar[gal] (hExpStar[gal] - E^(-(rEnd/hExpStar[gal])) (hExpStar[gal]+rEnd) ); (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, rEnd}]*)
-massExpStar[gal_] := massExpStar[gal, rmax122[gal]];
-massExpInftyStar[gal_] := 2 \[Pi] sigmaStarExp[0, gal] hExpStar[gal]^2 ; (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, \[Infinity]}]*)
-
-massExpGas[gal_, rEnd_] := 2 \[Pi] sigmaGasExp[0, gal] hExpGas[gal] (hExpGas[gal] - E^(-(rEnd/hExpGas[gal])) (hExpGas[gal]+rEnd) ); 
-massExpInftyGas[gal_] := 2 \[Pi] sigmaGasExp[0, gal] hExpGas[gal]^2 ; (*From Integrate[2 \[Pi] \[CapitalSigma]0 \[ExponentialE]^(-r/h) r, {r,0, \[Infinity]}]*)
-massExpGas[gal_] := massExpGas[gal, rmax122[gal]];
-
-massExpInftyBar[gal_] := massExpInftyStar[gal] + massExpInftyGas[gal];
-massExpBar[gal_] :=  massExpStar[gal] + massExpGas[gal];
-massExpBar[gal_, rEndStar_, rEndGas_] := massExpStar[gal, rEndStar] + massExpGas[gal, rEndGas];
-massExpBar[gal_, rEndStar_, rEndGas_, fgas_] := massExpStar[gal, rEndStar] + fgas massExpGas[gal, rEndGas];
-
-(*The definition below depends on rI and rD, which are defined, for each model, 
-in their corresponding NAV efficiency section *)
-efficiencyNAV[nSigma_] := (Area @ rI[nSigma] - Area @ rD[nSigma])/areaSigma @ plotObsSigma[nSigma];
-efficiencyNAVtotal[] := Mean[{efficiencyNAV[1], efficiencyNAV[2]}];
 
 savePreviousPlot[fileName_] := If[saveThisPlot || saveAllPlots, 
   Echo @ Export[ToString @ fileName, %]; saveThisPlot = False
@@ -1272,7 +1211,7 @@ list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 12
 
 list2\[Delta]VVmodelAlllimit = Select[list2\[Delta]VVmodelAll, #[[2]] < 5 &]; (*Data points with \[Delta]v larger than 5 are not considered, too far. This is just an approximation*)
 
-distPalatini = distributionSilverman[list2\[Delta]VVmodelAlllimit, 400]; (*Due to the large dispersion of data points, 400 InpoterpolationPoints are used*)
+distPalatini = distributionSilverman[list2\[Delta]VVmodelAlllimit, 400]; (*Due to the large dispersion of data points, 400 InterpolationPoints are used*)
 pdfValuenSigmaPalatini[n_?NumberQ] := FindHDPDFValues[distPalatini, nSigmaProbability[n]];
 (*plotBluePalatini = plotBlue[list2\[Delta]VVmodelAll, list1LimitsSigmaPalatini, {{xmin, xmax - 0.01}, {-0.5, 2.5}}, PlotRange -> {{0, 0.99}, {-0.5, 2.5}}] *)
 
@@ -1645,12 +1584,15 @@ efficiencyNAV[2]
 efficiencyNAVtotal[]
 
 
-Clear[\[Alpha], \[Mu], \[Mu]MOG, \[Mu]MOGinfty];
+Clear[\[Alpha], \[Mu], \[Mu]MOG, \[Mu]MOGinfty, fgas, \[CapitalDelta]D0, \[Mu]MOGstd, \[Mu]MOGinfty];
+
+D0std = 6.25 10^3; (*std = Standard value*)
+
 Off[NIntegrate::precw];
 diffAbs[r_, rprime_, \[Theta]_] = Sqrt[r^2 + rprime^2 - 2 r rprime Cos[\[Theta]]];
 
 \[CapitalDelta]v2MOG[r_, \[Alpha]_, \[Mu]_, gal_, fgas_] :=  kpc^2 G0 \[Alpha] r NIntegrate[
-  sigmaBarExpf[r, gal, 1.15]/diffAbs[r, rprime, \[Theta]]^2 (1 - Exp[- \[Mu] diffAbs[r, rprime, \[Theta]]] ( 1 + \[Mu] diffAbs[r, rprime, \[Theta]])) rprime, 
+  sigmaBarExpf[r, gal, fgas]/diffAbs[r, rprime, \[Theta]]^2 (1 - Exp[- \[Mu] diffAbs[r, rprime, \[Theta]]] ( 1 + \[Mu] diffAbs[r, rprime, \[Theta]])) rprime, 
   {\[Theta], -\[Pi], \[Pi]}, {rprime, 0, 1}, 
   Exclusions -> "Singularities", 
   WorkingPrecision -> 30, 
@@ -1658,20 +1600,161 @@ diffAbs[r_, rprime_, \[Theta]_] = Sqrt[r^2 + rprime^2 - 2 r rprime Cos[\[Theta]]
   AccuracyGoal -> Infinity
 ];
 
-\[Delta]v2MOG[rn_, \[Mu]_, gal_] := \[CapitalDelta]v2MOG[rn rmax122[gal], 1, \[Mu], gal]/ \[CapitalDelta]v2MOG[rmax122[gal], 1, \[Mu], gal]; (*\[Alpha] was used here to be 1, \[Delta]v2MOG is independ from \[Alpha]*)
-\[Mu]MOG[gal_] := \[Mu]MOG[gal] = (6.25 10^3)/Sqrt[massExpBar[gal]];
-\[Mu]MOG[gal_, rStarEnd_, rGasEnd_, fgas_] := (6.25 10^3)/Sqrt[massExpBar[gal, rStarEnd, rGasEnd, fgas]];
-\[Mu]MOGstd[gal_] := \[Mu]MOG[gal, 4.5 hExpStar[gal], rmax122[gal], 1.15];
-\[Mu]MOGinfty[gal_] := \[Mu]MOGinfty[gal] = (6.25 10^3)/Sqrt[massExpInftyBar[gal]];
-
-
+\[Delta]v2MOG[rn_, \[Mu]_, gal_, fgas_:1] := \[CapitalDelta]v2MOG[rn rmax122[gal], 1, \[Mu], gal, fgas]/ \[CapitalDelta]v2MOG[rmax122[gal], 1, \[Mu], gal, fgas]; (*\[Alpha] was used here to be 1, \[Delta]v2MOG is independ from \[Alpha]*)
+\[Mu]MOG[gal_] := (D0std \[CapitalDelta]D0)/Sqrt[massExpBar[gal]];
+\[Mu]MOG[gal_, rStarEnd_, rGasEnd_, fgas_] := (D0std \[CapitalDelta]D0)/Sqrt[massExpBar[gal, rStarEnd, rGasEnd, fgas]];
+\[Mu]MOGstd[gal_] := \[Mu]MOG[gal, 4.5 hExpStar[gal], rmax122[gal], fgas];
+\[Mu]MOGinfty[gal_] := (D0std \[CapitalDelta]D0)/Sqrt[massExpInftyBar[gal]];
 
 Clear[table\[Delta]v2MOG];
-table\[Delta]v2MOG[\[Mu]_, gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu], gal]}, {rn, 0.01, 1, 0.0198} ]; (*0.198 for 50 steps per galaxy*)
+table\[Delta]v2MOG[\[Mu]_, gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu], gal, fgas]}, {rn, 0.01, 1, 0.0198} ]; (*0.198 for 50 steps per galaxy*)
+table\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOG[gal], gal, fgas]}, {rn, 0.01, 1, 0.0198} ];
+table\[Delta]v2MOGinfty[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGinfty[gal], gal, fgas]}, {rn, 0.01, 1, 0.0198} ];
+table\[Delta]v2MOGstd[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGstd[gal], gal, fgas]}, {rn, 0.01, 1, 0.0198} ];
 
-table\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOG[gal], gal]}, {rn, 0.01, 1, 0.0198} ];
-table\[Delta]v2MOGinfty[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGinfty[gal], gal]}, {rn, 0.01, 1, 0.0198} ];
-table\[Delta]v2MOGstd[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGstd[gal], gal]}, {rn, 0.01, 1, 0.0198} ]
+
+
+\[CapitalDelta]D0 = 10^-10;
+fgas = 1.5;
+
+CloseKernels[];
+LaunchKernels[];
+DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];
+ParallelEvaluate[Off[NIntegrate::precw ]];
+EchoTiming[
+  table\[Delta]v2MOGstdResults =  ParallelTable[table\[Delta]v2MOGstd[gal], {gal, 122}];
+]
+
+
+Clear[plotMOGSigma];
+
+list2\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOGstd[rn, gal]}, {rn, RandomReal[1, 200]}]; (*Picks random points along each model curve*)
+
+list2\[Delta]v2MOGAll = Select[
+  Flatten[list2\[Delta]v2MOG /@ Range @ 122, 1], 
+  #[[2]] < 5 &
+]; (*Data points with \[Delta]v2 larger than 5 are not considered, too far. This is just an approximation*)
+
+distMOG = distributionSilverman[list2\[Delta]v2MOGAll, 400]; (*Due to the large dispersion of data points, 400 InterpolationPoints are used*)
+
+pdfValuenSigmaMOG[n_?NumberQ] := FindHDPDFValues[distMOG, nSigmaProbability[n]];
+
+plotMOGSigma[n_] := plotMOGSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaMOG[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
+  ];
+  ContourPlot[
+    PDF[distMOG, {x,y}] == pdfValue, 
+    {x, 0, 1}, {y, -1, 5},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
+  ]
+];
+
+plotMOGCurves = Plot[
+  Evaluate[\[Delta]v2MOGstd[rn, #] & /@ Range @ 122], 
+  {rn, 0, 1}, 
+  PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
+  PlotRange -> All
+];
+
+plotMOGContours = Show[{plotMOGSigma[1], plotMOGSigma[2]}];
+
+Show[
+  plotBackground[4],
+  plotSigmaRegionsRARNoBulge,
+  plotMOGCurves,
+  plotMOGContours,
+  Background-> White
+]
+
+
+(*DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];*)
+
+EchoTiming[
+{rI[1], rD[1]} = Parallelize[{
+  regionIntersection[plotMOGSigma[1],1], 
+  regionDifference[plotMOGSigma[1],1]
+  }]
+];
+
+efficiencyNAV[1]
+
+
+\[CapitalDelta]D0 = 1;
+fgas = 1.15;
+
+CloseKernels[];
+LaunchKernels[];
+DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];
+ParallelEvaluate[Off[NIntegrate::precw ]];
+EchoTiming[
+table\[Delta]v2MOGstdResults =  ParallelTable[table\[Delta]v2MOGstd[gal], {gal, 122}]; ]
+
+
+Clear[plotMOGSigma];
+
+list2\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOGstd[rn, gal]}, {rn, RandomReal[1, 200]}]; (*Picks random points along each model curve*)
+
+list2\[Delta]v2MOGAll = Select[
+  Flatten[list2\[Delta]v2MOG /@ Range @ 122, 1], 
+  #[[2]] < 5 &
+]; (*Data points with \[Delta]v2 larger than 5 are not considered, too far. This is just an approximation*)
+
+distMOG = distributionSilverman[list2\[Delta]v2MOGAll, 400]; (*Due to the large dispersion of data points, 400 InterpolationPoints are used*)
+
+pdfValuenSigmaMOG[n_?NumberQ] := FindHDPDFValues[distMOG, nSigmaProbability[n]];
+
+plotMOGSigma[n_] := plotMOGSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaMOG[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
+  ];
+  ContourPlot[
+    PDF[distMOG, {x,y}] == pdfValue, 
+    {x, 0, 1}, {y, -1, 5},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
+  ]
+];
+
+plotMOGCurves = Plot[
+  Evaluate[\[Delta]v2MOGstd[rn, #] & /@ Range @ 122], 
+  {rn, 0, 1}, 
+  PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
+  PlotRange -> All
+];
+
+plotMOGContours = Show[{plotMOGSigma[1], plotMOGSigma[2]}];
+
+Show[
+  plotBackground[4],
+  plotSigmaRegionsRARNoBulge,
+  plotMOGCurves,
+  plotMOGContours,
+  Background-> White
+]
+
+
+(*DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];*)
+
+EchoTiming[
+{rI[1], rD[1]} = Parallelize[{
+  regionIntersection[plotMOGSigma[1],1], 
+  regionDifference[plotMOGSigma[1],1]
+  }]
+];
+
+efficiencyNAV[1]
 
 
 

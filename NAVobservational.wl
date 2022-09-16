@@ -12,6 +12,7 @@
 (*I.1. Plots for Kernel Density Estimation for the distribution*)
 
   
+Print["Starting NAVobservational..."];
 
 Clear[plotBlueZero, statusKDE];
 
