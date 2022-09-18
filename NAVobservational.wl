@@ -83,50 +83,8 @@ statusKDE[list2RARRotNoBulge, {{-0.01,1}, {-0.5, 1.5}}];*)
 
 
 (* ::Section:: *)
-(*I.2. The 1\[Sigma] and 2\[Sigma] Highest Density Regions*)
+(*I.2. plotBlue and the 1\[Sigma] and 2\[Sigma] Highest Density Regions*)
 
-
-Clear[plotBlue, plotSigmaContours, plotBlueFunction];
-(*list1LimitingPDFValues::usage = 
-  "limitingPDFValues[data, {{xmin, xmax, xstep}, {ymin, ymax, ystep}}] provides {pdf1Sigma, pdf2sigma}}, \n " <>
-  "where pdf1Sigma and pdf2Sigma are respectively the pdf values that limit the 1 or 2 Sigma highest denstiy region found from the KDE of the provided data. \n"<>
-  "xmin, xmax, ymin and ymax set the region to be considered, while xstep and ystep the step size to be used to explore the distribution.";
-*)  
-
-nSigmaProbability[n_?NumberQ] := nSigmaProbability[n] = NProbability[Less[-n, x, n], Distributed[x, NormalDistribution[]]];
-oneSigmaProbability = nSigmaProbability[1];
-twoSigmaProbability = nSigmaProbability[2];  
-  
-FindHDPDFValues::usage = "FindHDPDFValues[dist, probability] yields the lowest PDF value that delimits the Highest Density Probability region, if the variable probability is a number. If the variable probability is a list of numbers, the result is the same of acting FindHDPDFValues on each of the list values. FindHDPDFValues works for DataDistribution of any dimensions.";
-
-FindHDPDFValues[dist_DataDistribution, probability_?NumberQ] := Block[
-  {pdfList, pdfSortList, cdfSortList, positionAtCdf, positionsAtPdf},
-  pdfList = dist["PDFValues"];
-  pdfSortList = Reverse @ Sort @ pdfList;
-  cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList];
-  positionAtCdf[prob_] := FirstPosition[cdfSortList, p_ /; p >= prob];
-  positionsAtPdf = Flatten[positionAtCdf @  probability];
-  First @ pdfSortList[[positionsAtPdf]]
-];
-
-FindHDPDFValues[dist_DataDistribution, probability_List] := FindHDPDFValues[dist, #] & /@ probability;
-
-plotSigmaContours[dataForContours_, limitingPdfValues_, {{xmin_, xmax_}, {ymin_, ymax_}}, options___]:= Block[
-  {pdf}, 
-  pdf[x_,y_] = PDF[distributionSilverman[dataForContours], {x, y}]; 
-  ContourPlot[
-    pdf[x, y],
-    {x, xmin, xmax},
-    {y, ymin, ymax},
-    Contours -> limitingPdfValues, (*Can be the output from FindHDPDFValues*)
-    ContourShading -> None, 
-    ContourStyle -> {
-      {Thickness[0.003], Lighter[Gray, 0.2]},
-      {Thickness @ 0.005, Gray}
-    },
-    options
-  ]
-];
 
 plotBlue[dataForBluePlot_, limitingPdfValeus_, {{xmin_, xmax_}, {ymin_, ymax_}}, options___] := Show[
   plotBlueZero[dataForBluePlot, options],

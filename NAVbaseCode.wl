@@ -33,7 +33,8 @@ colG\[Delta]Vms, colGAobs, colGAms, colGnAms galdataRAR, gdR, definedFunctions, 
 Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc, globalDataNfwFixed, globalDataNfwGY,
 headerGlobalDataNfwFixed, headerGlobalDataNfwGY, efficiencyNAV, areaObs, positivePart, \[Delta]Vobs1\[Sigma]L, \[Delta]Vobs2\[Sigma]L, 
 \[Delta]Vobs2\[Sigma]U, \[Delta]Vobs1\[Sigma]U, efficiencyNAVtotal, list1hn, list1hGasn, list1logSigma0, list1logSigmaGas0, list1frho, list1fh,
-\[Rho]stars, \[Rho]gas, \[Rho]bar, distributionSilverman, areaSigma, regionIntersection, regionDifference, listExtractPoints, plotObsSigma};
+\[Rho]stars, \[Rho]gas, \[Rho]bar, distributionSilverman, areaSigma, regionIntersection, regionDifference, listExtractPoints, plotObsSigma,
+nSigmaProbability, FindHDPDFValues, plotSigmaContours};
 
 Begin["`Private`"];
 
@@ -410,40 +411,78 @@ gdRBulgeless[listcols_] := gdRBulgeless[listcols] = Table[gdRBulgeless[listcols,
     Select[galdata\[Delta]Vms[i, start, end, Rcut], #[[colGnRad]] > 0.05 &];
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
+(* Highest density probability (HDP) related definitions *)
+
+  nSigmaProbability[n_?NumberQ] := nSigmaProbability[n] = NProbability[Less[-n, x, n], Distributed[x, NormalDistribution[]]];
+  oneSigmaProbability = nSigmaProbability[1];
+  twoSigmaProbability = nSigmaProbability[2];  
+    
+  FindHDPDFValues::usage = "FindHDPDFValues[dist, probability] yields the lowest PDF value that delimits the Highest Density Probability region, if the variable probability is a number. If the variable probability is a list of numbers, the result is the same of acting FindHDPDFValues on each of the list values. FindHDPDFValues works for DataDistribution of any dimensions.";
+
+  FindHDPDFValues[dist_DataDistribution, probability_?NumberQ] := Block[
+    {pdfList, pdfSortList, cdfSortList, positionAtCdf, positionsAtPdf},
+    pdfList = dist["PDFValues"];
+    pdfSortList = Reverse @ Sort @ pdfList;
+    cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList];
+    positionAtCdf[prob_] := FirstPosition[cdfSortList, p_ /; p >= prob];
+    positionsAtPdf = Flatten[positionAtCdf @  probability];
+    First @ pdfSortList[[positionsAtPdf]]
+  ];
+
+  FindHDPDFValues[dist_DataDistribution, probability_List] := FindHDPDFValues[dist, #] & /@ probability;
+
+  plotSigmaContours[dataForContours_, limitingPdfValues_, {{xmin_, xmax_}, {ymin_, ymax_}}, options___]:= Block[
+    {pdf}, 
+    pdf[x_,y_] = PDF[distributionSilverman[dataForContours], {x, y}]; 
+    ContourPlot[
+      pdf[x, y],
+      {x, xmin, xmax},
+      {y, ymin, ymax},
+      Contours -> limitingPdfValues, (*Can be the output from FindHDPDFValues*)
+      ContourShading -> None, 
+      ContourStyle -> {
+        {Thickness[0.003], Lighter[Gray, 0.2]},
+        {Thickness @ 0.005, Gray}
+      },
+      options
+    ]
+  ];
+
+
+(* ::Subsection:: *)
 (*Silverman bandwidth definition*)
 (*(this is independent from Mathetica's built in version, but they agree)*)
 
+  Clear[silvermanBw];
+  silvermanBw::usage = 
+    "silvermanBw[data] finds the Silverman bandwidth for the provided data." <> 
+    "It works for arbitrary dimensions and uses the expression... See " <>
+    "https://mathematica.stackexchange.com/questions/255281/2d-kernel-density-estimation-smoothkerneldistribution-with-bandwidth-estimatio?noredirect=1#comment637566_255281 "<> 
+    "and https://mathematica.stackexchange.com/questions/25423/the-default-bandwidth-of-the-smoothkerneldistribution-function";
 
-Clear[silvermanBw];
-silvermanBw::usage = 
-  "silvermanBw[data] finds the Silverman bandwidth for the provided data." <> 
-  "It works for arbitrary dimensions and uses the expression... See " <>
-  "https://mathematica.stackexchange.com/questions/255281/2d-kernel-density-estimation-smoothkerneldistribution-with-bandwidth-estimatio?noredirect=1#comment637566_255281 "<> 
-  "and https://mathematica.stackexchange.com/questions/25423/the-default-bandwidth-of-the-smoothkerneldistribution-function";
+  silvermanBw[dataX_?ListQ] := silvermanBw[dataX] = Block[
+    {std, interquartile, A, n, d, k},
+    d = If[Length@First @ dataX == 0, 1, Length@First @ dataX];
+    n = Length @ dataX;
+    std = StandardDeviation @ dataX;
+    interquartile = (Quantile[dataX, 0.75] - Quantile[dataX, 0.25]) / 1.34;
+    k = (9 * 3^(1/5))/(10 * 2^(2/5)) * (4/(d+2))^(1/(d+4));
+    If[d==1, std = {std}; interquartile = {interquartile}];
+    A= MapThread[ Min @ {#1,#2} & , {std, interquartile}];
+    If[d==1, A = First @ A];
+    k * n^(-1/(d+4)) A
+  ];
 
-silvermanBw[dataX_?ListQ] := silvermanBw[dataX] = Block[
-  {std, interquartile, A, n, d, k},
-  d = If[Length@First @ dataX == 0, 1, Length@First @ dataX];
-  n = Length @ dataX;
-  std = StandardDeviation @ dataX;
-  interquartile = (Quantile[dataX, 0.75] - Quantile[dataX, 0.25]) / 1.34;
-  k = (9 * 3^(1/5))/(10 * 2^(2/5)) * (4/(d+2))^(1/(d+4));
-  If[d==1, std = {std}; interquartile = {interquartile}];
-  A= MapThread[ Min @ {#1,#2} & , {std, interquartile}];
-  If[d==1, A = First @ A];
-  k * n^(-1/(d+4)) A
-];
-
-distributionSilverman[dataForKDE_, interpolationPoints_:300] := SmoothKernelDistribution[
-  dataForKDE, 
-  silvermanBw[dataForKDE], 
-  "Gaussian", 
-  MaxExtraBandwidths -> {{0,0}, {2,2}}, 
-  (* No extension for the horizontal axis: there cannot be data lower than 0 and higher than 1,
-   extension of 2 bandwidths in the vertical axis: relevant for a few models.*)
-  InterpolationPoints -> interpolationPoints
-]; (*Apart from MaxExtraBandwidths and InterpolationPoints, these are the standard options for SmoothKernelDistribution*)
+  distributionSilverman[dataForKDE_, interpolationPoints_:300] := SmoothKernelDistribution[
+    dataForKDE, 
+    silvermanBw[dataForKDE], 
+    "Gaussian", 
+    MaxExtraBandwidths -> {{0,0}, {2,2}}, 
+    (* No extension for the horizontal axis: there cannot be data lower than 0 and higher than 1,
+    extension of 2 bandwidths in the vertical axis: relevant for a few models.*)
+    InterpolationPoints -> interpolationPoints
+  ]; (*Apart from MaxExtraBandwidths and InterpolationPoints, these are the standard options for SmoothKernelDistribution*)
 
 
 (* ::Subsection::Closed:: *)
