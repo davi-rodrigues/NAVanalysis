@@ -330,4 +330,72 @@ Show[{plotGasExp[1],plotGasExp[2],listPlotGasExp }]
 Show[{plotGas[1],plotGas[2],plotGasExp[1],plotGasExp[2]}]
 
 
+Clear[listn, listnInt, listnIntDP];
+listnDisk[gal_] := {#1/rmax[gal], YDcentral #2} & @@@ gdRBulgeless[{Rad, Vdisk}, gal] ;
+listnGas[gal_] := {#1/rmax[gal], #2} & @@@ gdRBulgeless[{Rad, Vgas}, gal] ;
+listn[gal_] := {#1 /2, #2} & @@@ (listnDisk[gal] + listnGas[gal]);
+listnInt[gal_, rn_] := Quiet @ Interpolation[listn[gal], Method -> "Spline"][rn];
+listnIntDP[gal_] := If[
+  gdRBulgeless[{Rad, Vgas}, gal] == {}, 
+  {},
+  Table[{rn, listnInt[gal, rn]}, {rn, RandomReal[1, 40]}]
+];
+listnIntDPAll =  Flatten[listnIntDP /@ Range[175], 1];
+Clear[pdfValuenSigmaBar];
+distBar = distributionSilverman[listnIntDPAll, 500];
+pdfValuenSigmaBar[n_?NumberQ] := pdfValuenSigmaBar[n] = FindHDPDFValues[distBar, nSigmaProbability[n]];
+
+Clear[plotBar];
+plotBar[n_] := plotBar[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaBar[n];
+  Which[
+    n == 1, contourStyle = Directive[Thickness[0.002],Gray], 
+    n == 2, contourStyle = Directive[Thickness@0.002,Gray],
+    True, Automatic
+  ];
+  RegionPlot[
+    PDF[distBar, {x,y}] >  pdfValue, 
+    {x, 0.01, 0.99}, {y, -50, 200},
+    PerformanceGoal -> "Quality",
+    PlotStyle -> {GrayLevel[0.7],Opacity@0.5},
+    BoundaryStyle -> contourStyle
+  ]
+];
+listPlotBar = ListPlot[listnIntDPAll, PlotRange->{All, {-50, 200}}, Axes -> False, Frame -> True];
+Show[{plotBar[1],plotBar[2], listPlotBar}]
+
+
+Clear[listCurve, rn];
+listCurve[gal_] := YDcentral vExp[rn rmax122[gal], datasetExpVdiskNoBulge[gal, "logSigma0"], datasetExpVdiskNoBulge[gal, "h"]] + vExp[rn rmax122[gal], datasetExpVgasNoBulge[gal, "logSigma0Gas"], datasetExpVgasNoBulge[gal, "hGas"]];
+listCurveDP[gal_] := Table[{rn, listCurve[gal]}, {rn, RandomReal[1, 40]}]
+listCurveDPall = Flatten[listCurveDP /@ Range @ 122, 1];
+ListPlot[listCurveDPall, PlotRange->{All, {-50, 200}}, Axes -> False, Frame -> True]
+
+
+
+Clear[pdfValuenSigmaBarExp, distBarExp];
+distBarExp = distributionSilverman[listCurveDPall, 500];
+pdfValuenSigmaBarExp[n_?NumberQ] := pdfValuenSigmaBarExp[n] = FindHDPDFValues[distBarExp, nSigmaProbability[n]];
+
+Clear[plotBarExp];
+plotBarExp[n_] := plotBarExp[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaBarExp[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
+  ];
+  ContourPlot[
+    PDF[distBarExp, {x,y}] == pdfValue, 
+    {x, 0.01, 0.99}, {y, -50, 200},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
+  ]
+];
+listPlotBarExp = ListPlot[listCurveDPall, PlotRange->{All, {-50, 200}}, Axes -> False, Frame -> True];
+Show[{plotBarExp[1],plotBarExp[2], listPlotBarExp}]
+
+Show[{plotBar[1],plotBar[2],plotBarExp[1],plotBarExp[2]}]
+
+
 
