@@ -297,6 +297,13 @@ listPlotGas = ListPlot[listnIntDPAll, PlotRange->{All, {-50, 100}}, Axes -> Fals
 Show[{plotGas[1],plotGas[2], listPlotGas}]
 
 
+Clear[listCurve, rn];
+listCurve[gal_] := vExp[rn rmax122[gal], datasetExpVgasNoBulge[gal, "logSigma0Gas"], datasetExpVgasNoBulge[gal, "hGas"]];
+listCurveDP[gal_] := Table[{rn, listCurve[gal]}, {rn, RandomReal[1, 40]}]
+listCurveDPall = Flatten[listCurveDP /@ Range @ 122, 1];
+ListPlot[listCurveDPall, PlotRange->{All, {-50, 100}}, Axes -> False, Frame -> True]
+
+
 
 Clear[pdfValuenSigmaGasExp, distGasExp];
 distGasExp = distributionSilverman[listCurveDPall, 500];
@@ -312,12 +319,12 @@ plotGasExp[n_] := plotGasExp[n] = Block[{pdfValue, contourStyle},
   ];
   ContourPlot[
     PDF[distGasExp, {x,y}] == pdfValue, 
-    {x, 0.01, 0.99}, {y, -50, 150},
+    {x, 0.01, 0.99}, {y, -50, 100},
     PerformanceGoal -> "Quality", 
     ContourStyle -> contourStyle
   ]
 ];
-listPlotGasExp = ListPlot[listCurveDPall, PlotRange->{All, {-50, 150}}, Axes -> False, Frame -> True];
+listPlotGasExp = ListPlot[listCurveDPall, PlotRange->{All, {-50, 100}}, Axes -> False, Frame -> True];
 Show[{plotGasExp[1],plotGasExp[2],listPlotGasExp }]
 
 Show[{plotGas[1],plotGas[2],plotGasExp[1],plotGasExp[2]}]
