@@ -270,6 +270,47 @@ VVnfw[rn_, rsn_, \[Rho]s_, Rmax_] = (G / Rmax) * Mnfw[rn, rsn, \[Rho]s] / rn;
 ];
 
 
+(*Limiting \[Delta]Vnfw cases*)
+
+\[Delta]VnfwLargeRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> \[Infinity]];
+\[Delta]VnfwSmallRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> 0];
+
+plotNFWlimitingCases = Show[
+  {
+    plotBackground[1.5],
+    Plot[
+      {
+        \[Delta]VnfwLargeRsn[rn], 
+        \[Delta]VnfwSmallRsn[rn]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
+  }
+]
+
+plotNFWlimitingCasesWbackground = Show[
+  {
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        \[Delta]VnfwLargeRsn[rn], 
+        \[Delta]VnfwSmallRsn[rn]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
+  }
+];
+
+Print@plotNFWlimitingCasesWbackground;
+
+
+
+
 plotNFWGrayRed = Show[
   {
     plotBackground[1.5],

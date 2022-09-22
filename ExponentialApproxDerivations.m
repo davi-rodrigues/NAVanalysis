@@ -330,6 +330,25 @@ Show[{plotGasExp[1],plotGasExp[2],listPlotGasExp }]
 Show[{plotGas[1],plotGas[2],plotGasExp[1],plotGasExp[2]}]
 
 
+plotGasExp2[n_] := Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaGasExp[n];
+  Which[
+    n == 1, contourStyle = Directive[Blue], 
+    n == 2, contourStyle = Directive[Lighter @ Blue],
+    True, Automatic
+  ];
+  RegionPlot[
+    PDF[distGasExp, {x,y}] >  pdfValue, 
+    {x, 0.01, 0.99}, {y, -50, 100},
+    PerformanceGoal -> "Quality",
+    PlotStyle -> {Blue,Opacity@0.3},
+    BoundaryStyle -> contourStyle
+  ]
+];
+
+Show[{plotGas[1],plotGas[2],plotGasExp2[1],plotGasExp2[2]}]
+
+
 Clear[listn, listnInt, listnIntDP];
 listnDisk[gal_] := {#1/rmax[gal], YDcentral #2} & @@@ gdRBulgeless[{Rad, Vdisk}, gal] ;
 listnGas[gal_] := {#1/rmax[gal], #2} & @@@ gdRBulgeless[{Rad, Vgas}, gal] ;
