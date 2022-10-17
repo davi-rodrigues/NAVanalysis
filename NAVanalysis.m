@@ -45,6 +45,55 @@ savePreviousPlot[fileName_] := If[saveThisPlot || saveAllPlots,
 ];
 
 
+(*
+  Models considered here:
+  r^a -- for monotonic curves
+  2 r^a - r^b -- for non-monotonic curves
+
+  Both cases satisfy \[Delta]V(0)=0 and \[Delta]V(1)=1.
+  
+  The fits are done considering data between 0.2 < rn < 0.9.
+*)
+
+
+Clear[ac];
+list2restrictedRARRot = Select[list2RARRot, 0.2 <  #[[1]] < 0.9 &] ;
+{ac} ={ac} /. FindFit[list2restrictedRARRot,  r^ac , ac , r]
+
+
+Clear[a, b, c, d]
+
+list = Table[{r, list1InterpCurvesRAR[[4]][r]}, {r,0.2, 0.9, 0.05}];
+{c, d} = {c , d}/. FindFit[list, {2 r^c -  r^d},  {c, d}, r]
+
+list = Table[{r, list1InterpCurvesRAR[[3]][r]}, {r,0.2, 0.9, 0.05}];
+{b} = {b}/. FindFit[list, r^b,  {b}, r]
+
+Show[plotBackground[1.5],
+  plotSigmaRegionsRAR, 
+  Plot[{r^ac, 2 r^c - r^d, r^b}, {r, 0., 1}, 
+  PlotStyle->{Black, {Blue, Dashed}, {Blue, Dashed} }]
+]
+
+Export["plotPowerLawModel.pdf", %]
+
+
+Clear[b, loga, model, logR];
+model = b logR - loga;
+{b , loga} = {b, loga} /. FindFit[Re[{Log10[#1] , Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}],1]],  model , {b , loga} , logR]
+
+
+Show[
+  plotBlueZero[
+    {Log10[#1], Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}], 1], 
+    PlotRange-> {{0,2}, {1,5.5}}
+  ],
+  Plot[{Log10[10^logR/0.0015], model}, {logR, 0, 3}, PlotStyle->{{Black, Dashed}, Black}]
+]
+
+Export["DeltaV2analysis.pdf", %]
+
+
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
 Mbrkt[rn_, rcn_, \[Rho]0_] = 4 \[Pi] Rmax^3  Integrate[\[Rho]brkt[rnprime,rcn,\[Rho]0] rnprime^2,{rnprime,0,rn}, Assumptions-> {rn>0, rcn>0}];
 
