@@ -45,39 +45,6 @@ savePreviousPlot[fileName_] := If[saveThisPlot || saveAllPlots,
 ];
 
 
-(*
-  Models considered here:
-  r^a -- for monotonic curves
-  2 r^a - r^b -- for non-monotonic curves
-
-  Both cases satisfy \[Delta]V(0)=0 and \[Delta]V(1)=1.
-  
-  The fits are done considering data between 0.2 < rn < 0.9.
-*)
-
-
-Clear[ac];
-list2restrictedRARRot = Select[list2RARRot, 0.2 <  #[[1]] < 0.9 &] ;
-{ac} ={ac} /. FindFit[list2restrictedRARRot,  r^ac , ac , r]
-
-
-Clear[a, b, c, d]
-
-list = Table[{r, list1InterpCurvesRAR[[4]][r]}, {r,0.2, 0.9, 0.05}];
-{c, d} = {c , d}/. FindFit[list, {2 r^c -  r^d},  {c, d}, r]
-
-list = Table[{r, list1InterpCurvesRAR[[3]][r]}, {r,0.2, 0.9, 0.05}];
-{b} = {b}/. FindFit[list, r^b,  {b}, r]
-
-Show[plotBackground[1.5],
-  plotSigmaRegionsRAR, 
-  Plot[{r^ac, 2 r^c - r^d, r^b}, {r, 0., 1}, 
-  PlotStyle->{Black, {Blue, Dashed}, {Blue, Dashed} }]
-]
-
-Export["plotPowerLawModel.pdf", %]
-
-
 Clear[b, loga, model, logR];
 model = b logR - loga;
 {b , loga} = {b, loga} /. FindFit[Re[{Log10[#1] , Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}],1]],  model , {b , loga} , logR]
@@ -92,6 +59,155 @@ Show[
 ]
 
 Export["DeltaV2analysis.pdf", %]
+
+
+Clear[ac];
+list2restrictedRARRot = Select[list2RARRot, 0.2 <  #[[1]] < 0.9 &] ;
+{ac} ={ac} /. FindFit[list2restrictedRARRot,  r^ac , ac , r]
+
+Clear[a, b, c, d, e, f, g, h];
+
+list = Table[{r, list1InterpCurvesRAR[[4]][r]}, {r,0.2, 0.9, 0.05}];
+{c, d} = {c , d}/. FindFit[list, {2 r^c -  r^d},  {c, d}, r]
+
+list = Table[{r, list1InterpCurvesRAR[[3]][r]}, {r,0.2, 0.9, 0.05}];
+{b} = {b}/. FindFit[list, r^b,  {b}, r]
+
+list = Table[{r, list1InterpCurvesRAR[[2]][r]}, {r,0.2, 0.9, 0.05}];
+{e, f} = {e, f}/. FindFit[list, {2 r^e -  r^f},  {e, f}, r]
+
+list = Table[{r, list1InterpCurvesRAR[[1]][r]}, {r,0.2, 0.9, 0.05}];
+{g} = {g}/. FindFit[list, r^g ,  {g}, r]
+
+plotPowerLawModel = Show[
+  {
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        2 rn^c - rn^d, 
+        2 rn^e -  rn^f,  
+        rn^b, 
+        rn^g
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Red, 0.2], Thickness @ 0.003},
+        {Lighter[Red, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Red, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Red, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ],
+    Plot[rn^ac, {rn,0,1}, PlotStyle -> {Black, Dashed}]
+  }
+]
+
+Export["plotPowerLawModel.pdf", %]
+
+
+\[Delta]Varctan[rn_, rtn_] = ArcTan[rn/rtn]^2/ArcTan[1/rtn]^2;
+
+\[Delta]VarctanLimit1[rn_] = Limit[\[Delta]Varctan[rn, rtn], rtn -> \[Infinity]];
+\[Delta]VarctanLimit2[rn_] = Limit[\[Delta]Varctan[rn, rtn], rtn -> 0];
+  
+
+plotArctanGrayRed = Show[
+  {
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        \[Delta]VarctanLimit1[rn], 
+        \[Delta]VarctanLimit2[rn]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
+  }
+];
+
+Echo["plotArctanGrayRed:"];
+Print@plotArctanGrayRed;
+
+
+
+
+(* DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rtn_?NumberQ, n\[Sigma]_] := NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]Varctan[rn,rtn])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+chi2Lower[rtn_?NumberQ, n\[Sigma]_] := NIntegrate[
+  (lowerBound[n\[Sigma]][rn] - \[Delta]Varctan[rn,rtn])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing"-> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+rtnUpper[2] = rtn /. NMinimize[{chi2Upper[rtn,2],rtn>0.001},{rtn,0,10}][[2]];
+rtnUpper[1] = rtn /. NMinimize[{chi2Upper[rtn,1],rtn>0.001},{rtn,0,10}][[2]];
+rtnLower[2] = rtn /. NMinimize[{chi2Lower[rtn,2],rtn>0.001},{rtn,0,10}][[2]];
+rtnLower[1] = rtn /. NMinimize[{chi2Lower[rtn,1],rtn>0.001},{rtn,0,10}][[2]];
+
+Echo[{rtnUpper[1], rtnLower[1]}, "rtn 1\[Sigma] bounds: "];
+Echo[{rtnUpper[2], rtnLower[2]}, "rtn 2\[Sigma] bounds: "];
+
+plotArctanGlobalBestFit = Show[
+  {
+    plotArctanGrayRed,
+    Plot[
+      {
+        \[Delta]Varctan[rn, rtnUpper @ 2],
+        \[Delta]Varctan[rn, rtnUpper @ 1],
+        \[Delta]Varctan[rn, rtnLower @ 2],
+        \[Delta]Varctan[rn, rtnLower @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotArctanGlobalBestFit:"];
+Print@plotArctanGlobalBestFit;
+
+Export["plotArctanGlobalBestFit.pdf", plotArctanGlobalBestFit];
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));

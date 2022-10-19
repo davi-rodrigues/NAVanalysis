@@ -16,9 +16,14 @@
 *)
 
 Clear[rmax, rmin]; 
-rmax[gal_] := Last[gdR["Rad", gal]]; (*gal here is the galaxy nunber for the complete sample with 175 galaxies *)
+rmax[gal_] := Last[gdR["Rad", gal]]; (*gal here is the galaxy number for the complete sample with 175 galaxies, galaxies outside the RAR return {}. *)
 rmin[gal_] := First[gdR["Rad", gal]];
 rmax122[gal_] := datasetExpVdiskNoBulge[gal, "rMax"]; (* same as rmax, but for the sample with 122 galaxies.*)
+rmax153Table = DeleteCases[
+  rmax /@ Range @ 175, 
+  Last[{}]
+] // Quiet;
+rmax153[gal_] := rmax153Table[[gal]]; (* same as rmax, but for the sample with 122 galaxies.*)
 
 listVBar[gal_] := gdR[{"Rad", "Vbar"}, gal] // Prepend[#, {0, 0}] &; (*Includes YD contribution, as set in NAVbaseCode.*)
 vBar[R_, gal_] := Interpolation[listVBar[gal], Method -> "Spline", InterpolationOrder -> 2][R]; (*Baryonic circular velocity*)

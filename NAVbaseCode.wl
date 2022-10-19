@@ -153,7 +153,9 @@ BeginPackage["NAVbaseCode`"];
   FindHDPDFValues, 
   plotSigmaContours,
   oneSigmaProbability, 
-  twoSigmaProbability
+  twoSigmaProbability,
+  list1InterpSigmaCurves,
+  plotBlueRAR
 };
 
 Begin["`Private`"];
