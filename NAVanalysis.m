@@ -492,7 +492,7 @@ rectangle = {
 Histogram[
   Log10 @ listRcn, 
   {0.2}, 
-  PlotRange -> {{-1.5, 1.5}, All}, (*There are a few galaxies beyond 1*)
+  PlotRange -> {{-1.5, 2}, All}, (*There are a few galaxies beyond 1*)
   Frame -> True, 
   Axes -> False, 
   Epilog -> {rectangle},
