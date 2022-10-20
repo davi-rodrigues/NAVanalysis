@@ -210,6 +210,166 @@ Print@plotArctanGlobalBestFit;
 Export["plotArctanGlobalBestFit.pdf", plotArctanGlobalBestFit];
 
 
+resultsArctan = Get["../AuxiliaryData/arctan-GY-1-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
+headerArctan = First @ resultsArctan;
+resultsArctanData = Drop[resultsArctan, 1];
+colRt = First @ Flatten @ Position[headerArctan, "Rt"];
+listRtn = resultsArctanData[[All, colRt]] / (rmax153 /@ Range @ 153);
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rtnUpper @ 1, 0}, {Log10@rtnLower @ 1, 100}]
+};
+
+Histogram[
+  Log10 @ listRtn, 
+  {0.2}, 
+  PlotRange -> All,
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
+]
+
+
+listArctanChi2 = resultsArctanData[[All, colChi2]];
+Histogram[Log10@listArctanChi2, PlotRange->All]
+Echo[Median @ listArctanChi2, "Median: "];
+Echo[Total @ listArctanChi2, "Total: "];
+
+
+\[Delta]VarctanHalf[rn_, rtn_] = ArcTan[rn/rtn]/ArcTan[1/rtn];
+
+\[Delta]VarctanHalfLimit1[rn_] = Limit[\[Delta]VarctanHalf[rn, rtn], rtn -> \[Infinity]];
+\[Delta]VarctanHalfLimit2[rn_] = Simplify[Limit[\[Delta]VarctanHalf[rn, rtn], rtn -> 0], rn > 0];
+  
+
+plotArctanHalfGrayRed = Show[
+  {
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        \[Delta]VarctanHalfLimit1[rn], 
+        \[Delta]VarctanHalfLimit2[rn]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
+  }
+];
+
+Echo["plotArctanHalfGrayRed:"];
+Print@plotArctanHalfGrayRed;
+
+
+
+
+(* DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rtn_?NumberQ, n\[Sigma]_] := NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]VarctanHalf[rn,rtn])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+chi2Lower[rtn_?NumberQ, n\[Sigma]_] := NIntegrate[
+  (lowerBound[n\[Sigma]][rn] - \[Delta]VarctanHalf[rn,rtn])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing"-> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+rtnUpper[2] = rtn /. NMinimize[{chi2Upper[rtn,2],rtn>0.001},{rtn,0,10}][[2]];
+rtnUpper[1] = rtn /. NMinimize[{chi2Upper[rtn,1],rtn>0.001},{rtn,0,10}][[2]];
+rtnLower[2] = rtn /. NMinimize[{chi2Lower[rtn,2],rtn>0.001},{rtn,0,10}][[2]];
+rtnLower[1] = rtn /. NMinimize[{chi2Lower[rtn,1],rtn>0.001},{rtn,0,10}][[2]];
+
+Echo[{rtnUpper[1], rtnLower[1]}, "rtn 1\[Sigma] bounds: "];
+Echo[{rtnUpper[2], rtnLower[2]}, "rtn 2\[Sigma] bounds: "];
+
+plotArctanHalfGlobalBestFit = Show[
+  {
+    plotArctanHalfGrayRed,
+    Plot[
+      {
+        \[Delta]VarctanHalf[rn, rtnUpper @ 2],
+        \[Delta]VarctanHalf[rn, rtnUpper @ 1],
+        \[Delta]VarctanHalf[rn, rtnLower @ 2],
+        \[Delta]VarctanHalf[rn, rtnLower @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotArctanHalfGlobalBestFit:"];
+Print@plotArctanHalfGlobalBestFit;
+
+Export["plotArctanHalfGlobalBestFit.pdf", plotArctanHalfGlobalBestFit];
+
+
+resultsArctan = Get["../AuxiliaryData/arctanHalf-GY-1-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
+headerArctanHalf = First @ resultsArctanHalf;
+resultsArctanDataHalf = Drop[resultsArctanHalf, 1];
+colRt = First @ Flatten @ Position[headerArctanHalf, "Rt"];
+listRtnHalf = resultsArctanHalfData[[All, colRt]] / (rmax153 /@ Range @ 153);
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rtnUpper @ 1, 0}, {Log10@rtnLower @ 1, 100}]
+};
+
+Histogram[
+  Log10 @ listRtnHalf, 
+  {0.2}, 
+  PlotRange -> All,
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
+]
+
+
+listArctanHalfChi2 = resultsArctanHalfData[[All, colChi2]];
+Histogram[Log10@listArctanHalfChi2, PlotRange->All]
+Echo[Median @ listArctanHalfChi2, "Median: "];
+Echo[Total @ listArctanHalfChi2, "Total: "];
+
+
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
 Mbrkt[rn_, rcn_, \[Rho]0_] = 4 \[Pi] Rmax^3  Integrate[\[Rho]brkt[rnprime,rcn,\[Rho]0] rnprime^2,{rnprime,0,rn}, Assumptions-> {rn>0, rcn>0}];
 
@@ -226,8 +386,8 @@ plotBurkertGrayRed = Show[
     plotSigmaRegionsRAR,
     Plot[
       {
-        \[Delta]Vbrkt[rn, 1000], 
-        \[Delta]Vbrkt[rn, 0.001]
+        rn^2, (*These are the limiting curves for Burkert.*)
+        1/rn
       },
       {rn, 0, 1},
       PlotRange -> All,
@@ -266,8 +426,8 @@ chi2Lower[rcn_?NumberQ, n\[Sigma]_]:= chi2Lower[rcn, n\[Sigma]] = NIntegrate[
 
 (* SPECIFIC DEFINITIONS *)
 
-rnStart = 0.01;
-rnEnd=0.99;
+rnStart = 0.2;
+rnEnd=0.9;
 
 lowerBound[1] = list1InterpCurvesRAR[[1]];
 upperBound[1] = list1InterpCurvesRAR[[2]];
@@ -317,111 +477,33 @@ Print@plotBurkertGlobalBestFit;
 Export["plotBurkertGlobalBestFit.pdf", plotBurkertGlobalBestFit];
 
 
-(*rcn values outside the upper and lower limits are not considered*)
-(*The upper limit is important to eliminate those cases that are essentially infinity,
-these also pose technical difficulties for the kernel density estimation.
-The lower limit may be important since we have droppend all data with rn < 0.2,
-There are galaxies that use the DM profile to do a quick rise of the rotation curve.*)
+resultsBurkert = Get["../AuxiliaryData/Burkert-GY-05-06-MAGMAtableResults.m"]; (*These results include all 175 galaxies*)
+headerBurkert = First @ resultsBurkert;
+resultsBurkertData = Drop[resultsBurkert, 1];
+colRc = First @ Flatten @ Position[headerBurkert, "rc"];
+listRcn = DeleteCases[resultsBurkertData[[All, colRc]] / (rmax /@ Range @ 175), _/Last[{}]] // Quiet;
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rcnUpper @ 1, 0}, {Log10@rcnLower @ 1, 100}]
+};
 
-Clear[statusHistogram, nSigmas, rcnLowerLimit, rcnUpperLimit];
+Histogram[
+  Log10 @ listRcn, 
+  {0.2}, 
+  PlotRange -> {{-1.5, 1.5}, All}, (*There are a few galaxies beyond 1*)
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
+]
 
-statusHistogram[nSigmas_, rcnLowerLimit_, rcnUpperLimit_]:= Block[{},
-  Rmax[i_] := Last @ gd[Rad, i];
-  rc[i_] := globalData[[i, colrc]] ;
-  posExcluded = Position[Table[galdataRAR @ n, {n, 1, 175}], {}];
-  RmaxXrcAll = Table[{Rmax @ i, rc @ i}, {i, 1, 175}];
-  RmaxXrc = Delete[RmaxXrcAll, posExcluded];
-  rcnDataAll =  (Divide @@@ RmaxXrcAll)^-1;
-  rcnData =  (Divide @@@ RmaxXrc)^-1;
-  
-  rcnDataWithoutOutliers = Select[rcnData, rcnLowerLimit < # < rcnUpperLimit &]; 
-  dist = SmoothKernelDistribution[
-    rcnDataWithoutOutliers, 
-    silvermanBw[rcnDataWithoutOutliers], 
-    MaxExtraBandwidths -> 0,
-    InterpolationPoints -> 10^4
-  ];
 
-  pdfValuesForContours = Block[
-    {
-      positionAtCdf, oneSigmaProbability, twoSigmaProbability, positionsAtPdf, pdfList,
-      pdfSortList, cdfSortList
-    },
-    oneSigmaProbability = NProbability[Less[-1, x, 1], Distributed[x, NormalDistribution[]]];
-    twoSigmaProbability = NProbability[Less[-2, x, 2], Distributed[x, NormalDistribution[]]];
-    pdfList = Table[
-      PDF[dist,x],
-      {x, 0, 3, 0.01}
-    ];
-    pdfSortList = Reverse @ Sort @ Flatten @ pdfList;
-    cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList] ;
-    positionAtCdf[probability_] := FirstPosition[cdfSortList, p_ /; GreaterEqual[p, probability]];
-    positionsAtPdf = Flatten @ Map[positionAtCdf, {oneSigmaProbability, twoSigmaProbability}];
-    pdfSortList[[positionsAtPdf]]
-  ];
-
-  sigmaContoursPlot = ContourPlot[
-    PDF[dist,x],
-    {x, 0, 3},
-    {y,0, 2},
-    Contours -> pdfValuesForContours, 
-    PlotRange -> {{0., 3}, All}
-  ];
-
-  sigmaContoursList = Cases[
-    Normal @ FullForm @ First @ sigmaContoursPlot,
-    Line[pts_] :> pts,
-    Infinity
-  ];
-
-  maxPDF = x /. Last @ Maximize[PDF[dist, x], x];
-
-  rcnRootsSigma[i_] := Quiet[
-    FindRoot[
-      PDF[dist,x]==pdfValuesForContours[[i]], #
-    ] & /@ {{x,0,maxPDF}, {x,maxPDF,3}},
-    FindRoot::brmp
-  ];
-
-  {rcnLow @ 1, rcnHigh @ 1} = x /. rcnRootsSigma[1];
-  {rcnLow @ 2, rcnHigh @ 2} = x /. Quiet[rcnRootsSigma[2], FindRoot::brmp];
-
-  lines = {
-    Dashed, 
-    Thickness @ 0.004, 
-    Line @ {{rcnUpper @ nSigmas, 0}, {rcnUpper @ nSigmas, 100}},
-    Line @ {{rcnLower @ nSigmas, 0}, {rcnLower @ nSigmas, 100}}
-  };
-
-  lines2= {
-    Red,
-    DotDashed, 
-    Thickness @ 0.004, 
-    Line @ {{rcnLow @ nSigmas, 0}, {rcnLow @ nSigmas, 100}},
-    Line @ {{rcnHigh @ nSigmas, 0}, {rcnHigh @ nSigmas, 100}}
-  };
-
-  rcnDistributionHistogram := Histogram[
-    rcnDataWithoutOutliers,
-    {0.1}, 
-    "PDF", 
-    PlotRange -> {{0, 3}, All},
-    Frame -> True, 
-    Axes -> False, 
-    Epilog -> {lines, lines2}, 
-    histoOptions
-  ];
-
-  Echo[ToString@nSigmas <>"\[Sigma] limits from individual fits:" <> ToString@{rcnLow@nSigmas, rcnHigh@nSigmas}];
-  Echo[ToString@nSigmas <>"\[Sigma] limits from NAV method:" <> ToString@{rcnUpper@nSigmas, rcnLower@nSigmas}];
-  Echo["Lower and upper rcn limits used for the individual Burkert fits: " <> ToString[{rcnLowerLimit, rcnUpperLimit}]];
-  Echo["rcnDistributionHistogram for "<> ToString@nSigmas <>"\[Sigma]:"];
-  Print@Show[{rcnDistributionHistogram, nPlot[PDF[dist,x], {x,0,3}, PlotRange -> All]}]
-];
-
-statusHistogram[1, 0, 100];
-
-statusHistogram[2,0,100];
+listBurkertChi2 = resultsBurkertData[[All, colChi2]];
+Histogram[Log10@listBurkertChi2, PlotRange->All]
+Echo[Median @ listBurkertChi2, "Median: "];
+Echo[Total @ listBurkertChi2, "Total: "];
 
 
 \[Rho]nfw[rn_, rsn_, \[Rho]s_] = \[Rho]s/(rn/rsn (1+rn/rsn)^2);
