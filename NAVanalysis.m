@@ -45,10 +45,11 @@ savePreviousPlot[fileName_] := If[saveThisPlot || saveAllPlots,
 ];
 
 
+saveThisPlot = False;
+
 Clear[b, loga, model, logR];
 model = b logR - loga;
 {b , loga} = {b, loga} /. FindFit[Re[{Log10[#1] , Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}],1]],  model , {b , loga} , logR]
-
 
 Show[
   plotBlueZero[
@@ -58,8 +59,10 @@ Show[
   Plot[{Log10[10^logR/0.0015], model}, {logR, 0, 3}, PlotStyle->{{Black, Dashed}, Black}]
 ]
 
-Export["DeltaV2analysis.pdf", %]
+savePreviousPlot["DeltaV2analysis.pdf"];
 
+
+saveThisPlot = False;
 
 Clear[ac];
 list2restrictedRARRot = Select[list2RARRot, 0.2 <  #[[1]] < 0.9 &] ;
@@ -105,7 +108,12 @@ plotPowerLawModel = Show[
   }
 ]
 
-Export["plotPowerLawModel.pdf", %]
+savePreviousPlot["plotPowerLawModel.pdf"];
+
+
+efficiencyNAV[#^g &, 2 #^e - #^f &, 1]
+efficiencyNAV[#^b &, 2 #^c - #^d &, 2]
+efficiencyNAVtotal[#^g &, 2 #^e - #^f &, #^b &, 2 #^c - #^d &]
 
 
 \[Delta]Varctan[rn_, rtn_] = ArcTan[rn/rtn]^2/ArcTan[1/rtn]^2;
@@ -135,6 +143,8 @@ Print@plotArctanGrayRed;
 
 
 
+
+saveThisPlot = False;
 
 (* DEFINITIONS *)
 
@@ -207,8 +217,15 @@ plotArctanGlobalBestFit = Show[
 Echo["plotArctanGlobalBestFit:"];
 Print@plotArctanGlobalBestFit;
 
-Export["plotArctanGlobalBestFit.pdf", plotArctanGlobalBestFit];
+savePreviousPlot["plotArctanGlobalBestFit.pdf"];
 
+
+efficiencyNAV[\[Delta]Varctan[#, rtnLower@ 1] &, \[Delta]Varctan[#, rtnUpper@ 1] &, 1]
+efficiencyNAV[\[Delta]Varctan[#, rtnLower@ 2] &, \[Delta]Varctan[#, rtnUpper@ 2] &, 2]
+efficiencyNAVtotal[\[Delta]Varctan[#, rtnLower@ 1] &, \[Delta]Varctan[#, rtnUpper@ 1] &, \[Delta]Varctan[#, rtnLower@ 2] &, \[Delta]Varctan[#, rtnUpper@ 2] &]
+
+
+saveThisPlot = False;
 
 resultsArctan = Get["../AuxiliaryData/arctan-GY-1-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
 headerArctan = First @ resultsArctan;
@@ -232,9 +249,10 @@ Histogram[
   histoOptions
 ]
 
+savePreviousPlot["histogramArctan.pdf"];
+
 
 listArctanChi2 = resultsArctanData[[All, colChi2]];
-Histogram[Log10@listArctanChi2, PlotRange->All]
 Echo[Median @ listArctanChi2, "Median: "];
 Echo[Total @ listArctanChi2, "Total: "];
 
@@ -266,6 +284,8 @@ Print@plotArctanHalfGrayRed;
 
 
 
+
+saveThisPlot = False;
 
 (* DEFINITIONS *)
 
@@ -338,12 +358,19 @@ plotArctanHalfGlobalBestFit = Show[
 Echo["plotArctanHalfGlobalBestFit:"];
 Print@plotArctanHalfGlobalBestFit;
 
-Export["plotArctanHalfGlobalBestFit.pdf", plotArctanHalfGlobalBestFit];
+savePreviousPlot["plotArctanHalfGlobalBestFit.pdf"];
 
 
-resultsArctan = Get["../AuxiliaryData/arctanHalf-GY-1-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
+efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 1] &, \[Delta]VarctanHalf[#, rtnUpper@ 1] &, 1]
+efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnUpper@ 2] &, 2]
+efficiencyNAVtotal[\[Delta]VarctanHalf[#, rtnLower@ 1] &, \[Delta]VarctanHalf[#, rtnUpper@ 1] &, \[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnUpper@ 2] &]
+
+
+saveThisPlot = True;
+
+resultsArctanHalf = Get["../AuxiliaryData/arctanHalf-GY-1-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
 headerArctanHalf = First @ resultsArctanHalf;
-resultsArctanDataHalf = Drop[resultsArctanHalf, 1];
+resultsArctanHalfData = Drop[resultsArctanHalf, 1];
 colRt = First @ Flatten @ Position[headerArctanHalf, "Rt"];
 listRtnHalf = resultsArctanHalfData[[All, colRt]] / (rmax153 /@ Range @ 153);
 rectangle = {
@@ -363,9 +390,10 @@ Histogram[
   histoOptions
 ]
 
+savePreviousPlot["histogramArctanHalf.pdf"];
+
 
 listArctanHalfChi2 = resultsArctanHalfData[[All, colChi2]];
-Histogram[Log10@listArctanHalfChi2, PlotRange->All]
 Echo[Median @ listArctanHalfChi2, "Median: "];
 Echo[Total @ listArctanHalfChi2, "Total: "];
 
