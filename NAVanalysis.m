@@ -541,49 +541,11 @@ VVnfw[rn_, rsn_, \[Rho]s_, Rmax_] = (G / Rmax) * Mnfw[rn, rsn, \[Rho]s] / rn;
 
 \[Delta]Vnfw[rn_, rsn_] = FullSimplify[
   VVnfw[rn, rsn, \[Rho]s, Rmax] / VVnfw[1, rsn, \[Rho]s, Rmax],
-  Assumptions -> {0 < rn < 1, 0 < rsn < 1, 0 < Rmax}
-];
-
-
-(*Limiting \[Delta]Vnfw cases*)
-
-\[Delta]VnfwLargeRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> \[Infinity]];
-\[Delta]VnfwSmallRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> 0];
-
-plotNFWlimitingCases = Show[
-  {
-    plotBackground[1.5],
-    Plot[
-      {
-        \[Delta]VnfwLargeRsn[rn], 
-        \[Delta]VnfwSmallRsn[rn]
-      },
-      {rn, 0, 1},
-      PlotRange -> All,
-      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
-    ]
-  }
+  Assumptions -> {0 < rn < 1, 0 < Rmax}
 ]
 
-plotNFWlimitingCasesWbackground = Show[
-  {
-    plotBackground[1.5],
-    plotSigmaRegionsRAR,
-    Plot[
-      {
-        \[Delta]VnfwLargeRsn[rn], 
-        \[Delta]VnfwSmallRsn[rn]
-      },
-      {rn, 0, 1},
-      PlotRange -> All,
-      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
-    ]
-  }
-];
-
-Print@plotNFWlimitingCasesWbackground;
-
-
+\[Delta]VnfwLargeRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> \[Infinity]]
+\[Delta]VnfwSmallRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> 0]
 
 
 plotNFWGrayRed = Show[
@@ -592,8 +554,8 @@ plotNFWGrayRed = Show[
     plotSigmaRegionsRAR,
     Plot[
       {
-        \[Delta]Vnfw[rn, 1000], 
-        \[Delta]Vnfw[rn, 0.001]
+        \[Delta]VnfwLargeRsn[rn], 
+        \[Delta]VnfwSmallRsn[rn]
       },
       {rn, 0, 1},
       PlotRange -> All,
@@ -606,7 +568,7 @@ Echo["plotNFWGrayRed:"];
 Print@plotNFWGrayRed;
 
 
-
+saveThisPlot = True;
 
 Clear[chi2Upper, chi2Lower];
 chi2Upper[rsn_?NumberQ, n\[Sigma]_]:= (*chi2Upper[rcn, n\[Sigma]] =*) NIntegrate[
@@ -632,8 +594,8 @@ chi2Lower[rsn_?NumberQ, n\[Sigma]_]:= chi2Lower[rsn, n\[Sigma]] = NIntegrate[
 
 (* SPECIFIC DEFINITIONS *)
 
-rnStart = 0.01;
-rnEnd=0.99;
+rnStart = 0.2;
+rnEnd=0.9;
 
 lowerBound[1] = list1InterpCurvesRAR[[1]];
 upperBound[1] = list1InterpCurvesRAR[[2]];
@@ -678,9 +640,9 @@ plotNFWGlobalBestFit = Show[
 ];
 
 Echo["plotNFWGlobalBestFit:"];
-Print@plotNFWGlobalBestFit;
+plotNFWGlobalBestFit
 
-Export["plotNFWGlobalBestFit.pdf", plotNFWGlobalBestFit];
+savePreviousPlot["plotNFWGlobalBestFit.pdf"];
 
 
 (*rcn values outside the upper and lower limits are not considered*)
