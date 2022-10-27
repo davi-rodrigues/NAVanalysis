@@ -122,10 +122,10 @@ BeginPackage["NAVbaseCode`"];
   kpc, 
   G0, 
   ckpc, 
-  globalDataNfwFixed, 
+  (* globalDataNfwFixed, 
   globalDataNfwGY,
   headerGlobalDataNfwFixed, 
-  headerGlobalDataNfwGY, 
+  headerGlobalDataNfwGY,*) 
   efficiencyNAV, 
   areaObs, 
   positivePart, 
@@ -181,13 +181,13 @@ If[isBurkertWithGaussianPriors == True,
 globalData = Drop[TableResults,1];
 headerGlobalData = TableResults[[1]];
 
-Get["NFW-Fixed-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"];
+(* Get["NFW-Fixed-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"];
 globalDataNfwFixed = Drop[TableResults,1];
 headerGlobalDataNfwFixed = TableResults[[1]];
 
 Get["NFW-GY-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"];
 globalDataNfwGY = Drop[TableResults,1];
-headerGlobalDataNfwGY = TableResults[[1]];
+headerGlobalDataNfwGY = TableResults[[1]]; *)
 
 Clear[TableResults];
 
