@@ -222,6 +222,7 @@ savePreviousPlot["plotArctanGlobalBestFit.pdf"];
 
 efficiencyNAV[\[Delta]Varctan[#, rtnLower@ 1] &, \[Delta]Varctan[#, rtnUpper@ 1] &, 1]
 efficiencyNAV[\[Delta]Varctan[#, rtnLower@ 2] &, \[Delta]Varctan[#, rtnUpper@ 2] &, 2]
+(0.68%% + 0.27 %)/0.95
 efficiencyNAVtotal[\[Delta]Varctan[#, rtnLower@ 1] &, \[Delta]Varctan[#, rtnUpper@ 1] &, \[Delta]Varctan[#, rtnLower@ 2] &, \[Delta]Varctan[#, rtnUpper@ 2] &]
 
 
@@ -363,6 +364,7 @@ savePreviousPlot["plotArctanHalfGlobalBestFit.pdf"];
 
 efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 1] &, \[Delta]VarctanHalf[#, rtnUpper@ 1] &, 1]
 efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnUpper@ 2] &, 2]
+(0.68%% + 0.27 %)/0.95
 efficiencyNAVtotal[\[Delta]VarctanHalf[#, rtnLower@ 1] &, \[Delta]VarctanHalf[#, rtnUpper@ 1] &, \[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnUpper@ 2] &]
 
 
@@ -520,7 +522,7 @@ rectangle = {
 Histogram[
   Log10 @ listRcn, 
   {0.2}, 
-  PlotRange -> {{-1.5, 2.5}, All}, (*There are a few galaxies beyond 1*)
+  PlotRange -> {All, All}, (*There are a few galaxies beyond 1*)
   Frame -> True, 
   Axes -> False, 
   Epilog -> {rectangle},
@@ -609,8 +611,8 @@ Echo["Performing the optimization."];
 
 rsnUpper[2] = rsn /. NMinimize[{chi2Upper[rsn,2], rsn > 0}, {rsn, 0, 1}][[2]];
 rsnUpper[1] = rsn /. NMinimize[{chi2Upper[rsn,1], rsn > 0}, {rsn, 0, 1}][[2]];
-rsnLower[2] = rsn /. NMinimize[{chi2Lower[rsn,2], rsn > 0}, {rsn, 10, 1000}][[2]];
-rsnLower[1] = rsn /. NMinimize[{chi2Lower[rsn,1], rsn > 0}, {rsn, 10, 1000}][[2]];
+rsnLower[2] = rsn /. NMinimize[{chi2Lower[rsn,2], rsn > 0}, {rsn, 10, 10000}][[2]];
+rsnLower[1] = rsn /. NMinimize[{chi2Lower[rsn,1], rsn > 0}, {rsn, 10, 10000}][[2]];
 
 Echo[{rsnUpper[1], rsnLower[1]}, "rsn 1\[Sigma] bounds: "];
 Echo[{rsnUpper[2], rsnLower[2]}, "rsn 2\[Sigma] bounds: "];
