@@ -368,7 +368,7 @@ efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnU
 efficiencyNAVtotal[\[Delta]VarctanHalf[#, rtnLower@ 1] &, \[Delta]VarctanHalf[#, rtnUpper@ 1] &, \[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnUpper@ 2] &]
 
 
-saveThisPlot = True;
+saveThisPlot = False;
 
 resultsArctanHalf = Get["../AuxiliaryData/arctanHalf-GY-1-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
 headerArctanHalf = First @ resultsArctanHalf;
@@ -398,6 +398,38 @@ savePreviousPlot["histogramArctanHalf.pdf"];
 listArctanHalfChi2 = resultsArctanHalfData[[All, colChi2]];
 Echo[Median @ listArctanHalfChi2, "Median: "];
 Echo[Total @ listArctanHalfChi2, "Total: "];
+
+
+saveThisPlot = False;
+
+resultsArctanHalfFixed = Get["../AuxiliaryData/arctanHalf-Fixed-05-06-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
+headerArctanHalfFixed = First @ resultsArctanHalfFixed;
+resultsArctanHalfDataFixed = Drop[resultsArctanHalfFixed, 1];
+colRt = First @ Flatten @ Position[headerArctanHalfFixed, "Rt"];
+listRtnHalfFixed = resultsArctanHalfDataFixed[[All, colRt]] / (rmax153 /@ Range @ 153);
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rtnUpper @ 1, 0}, {Log10@rtnLower @ 1, 100}]
+};
+
+Histogram[
+  Log10 @ listRtnHalfFixed, 
+  {0.2}, 
+  PlotRange -> All,
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
+]
+
+savePreviousPlot["histogramArctanHalf.pdf"];
+
+
+listArctanHalfChi2Fixed = resultsArctanHalfDataFixed[[All, colChi2]];
+Echo[Median @ listArctanHalfChi2Fixed, "Median: "];
+Echo[Total @ listArctanHalfChi2Fixed, "Total: "];
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
