@@ -679,6 +679,12 @@ plotNFWGlobalBestFit
 savePreviousPlot["plotNFWGlobalBestFit.pdf"];
 
 
+efficiencyNAV[\[Delta]Vnfw[#, rsnLower@ 1] &, \[Delta]Vnfw[#, rsnUpper@ 1] &, 1]
+efficiencyNAV[\[Delta]Vnfw[#, rsnLower@ 2] &, \[Delta]Vnfw[#, rsnUpper@ 2] &, 2]
+(0.68%% + 0.27 %)/0.95
+efficiencyNAVtotal[\[Delta]Vnfw[#, rsnLower@ 1] &, \[Delta]Vnfw[#, rsnUpper@ 1] &, \[Delta]Vnfw[#, rsnLower@ 2] &, \[Delta]Vnfw[#, rsnUpper@ 2] &]
+
+
 saveThisPlot = False;
 
 resultsNFW = Get["../AuxiliaryData/NFW-GY-05-06-v2-MAGMAtableResults.m"]; (*These results include all 175 galaxies*)
@@ -705,6 +711,40 @@ Histogram[
 ]
 
 savePreviousPlot["histogramNFW.pdf"];
+
+
+listNFWChi2 = resultsNFWDataRAR[[All, colChi2]];
+Histogram[Log10@listNFWChi2, PlotRange->All]
+Echo[Median @ listNFWChi2, "Median: "];
+Echo[Total @ listNFWChi2, "Total: "];
+
+
+saveThisPlot = False;
+
+resultsNFWfixed = Get["../AuxiliaryData/NFW-Fixed-05-06-v2-MAGMAtableResults.m"]; (*These results include all 175 galaxies*)
+headerNFWfixed = First @ resultsNFWfixed;
+resultsNFWDataFixed = Drop[resultsNFWfixed, 1];
+colRsFixed = First @ Flatten @ Position[headerNFWfixed, "rS"];
+resultsNFWDataRARfixed = Delete[resultsNFWDataFixed,  GalaxiesOutsideRAR];
+listRsnRARfixed = resultsNFWDataRARfixed[[All, colRs]] / (rmax153 /@ Range @ 153);
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rsnUpper @ 1, 0}, {Log10@rsnLower @ 1, 100}]
+};
+
+Histogram[
+  Log10 @ listRsnRARfixed, 
+  {0.2}, 
+  PlotRange -> {All, All}, 
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
+]
+
+savePreviousPlot["histogramNFWfixed.pdf"];
 
 
 listNFWChi2 = resultsNFWDataRAR[[All, colChi2]];
