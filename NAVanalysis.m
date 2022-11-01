@@ -424,7 +424,7 @@ Histogram[
   histoOptions
 ]
 
-savePreviousPlot["histogramArctanHalf.pdf"];
+savePreviousPlot["histogramArctanHalfFixed.pdf"];
 
 
 listArctanHalfChi2Fixed = resultsArctanHalfDataFixed[[All, colChi2]];
@@ -747,10 +747,10 @@ Histogram[
 savePreviousPlot["histogramNFWfixed.pdf"];
 
 
-listNFWChi2 = resultsNFWDataRAR[[All, colChi2]];
-Histogram[Log10@listNFWChi2, PlotRange->All]
-Echo[Median @ listNFWChi2, "Median: "];
-Echo[Total @ listNFWChi2, "Total: "];
+listNFWChi2Fixed = resultsNFWDataRARfixed[[All, colChi2]];
+Histogram[Log10@listNFWChi2Fixed, PlotRange->All]
+Echo[Median @ listNFWChi2Fixed, "Median: "];
+Echo[Total @ listNFWChi2Fixed, "Total: "];
 
 
 Clear[X, \[Rho], \[Alpha],\[Gamma],\[Beta]]
