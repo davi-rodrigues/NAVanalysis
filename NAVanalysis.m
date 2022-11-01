@@ -539,6 +539,8 @@ Print@plotBurkertGlobalBestFit;
 Export["plotBurkertGlobalBestFit.pdf", plotBurkertGlobalBestFit];
 
 
+saveThisPlot = False;
+
 resultsBurkert = Get["../AuxiliaryData/Burkert-GY-05-06-MAGMAtableResults.m"]; (*These results include all 175 galaxies*)
 headerBurkert = First @ resultsBurkert;
 resultsBurkertData = Drop[resultsBurkert, 1];
@@ -560,6 +562,8 @@ Histogram[
   Epilog -> {rectangle},
   histoOptions
 ]
+
+savePreviousPlot["histogramBurkert.pdf"];
 
 
 listBurkertChi2 = resultsBurkertData[[All, colChi2]];
