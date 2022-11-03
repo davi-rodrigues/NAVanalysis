@@ -757,6 +757,181 @@ Echo[Median @ listNFWChi2Fixed, "Median: "];
 Echo[Total @ listNFWChi2Fixed, "Total: "];
 
 
+Clear[a0, \[CapitalDelta]VVmodel, VVmodel, \[Delta]VVmodel];
+
+saveThisPlot = False; (*Change this to True to save it*)
+
+v2MondRaw[R_, gal_] := R kpc aBar[R, gal]/(1 - E^-Sqrt[RealAbs[aBar[R, gal]]/a0]);
+
+\[CapitalDelta]v2MondRaw[R_, gal_] := v2MondRaw[R, gal] - aBar[R, gal] R kpc ;
+
+\[Delta]v2MondRaw[rn_, gal_] := If[gdR["Rad", gal]=={}, 
+  {}, 
+  \[CapitalDelta]v2MondRaw[rn rmax[gal], gal] / \[CapitalDelta]v2MondRaw[rmax[gal], gal]
+];
+
+Echo[a0 = 1, "a0 = "];
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRAR,
+  Plot[
+    Evaluate[\[Delta]v2MondRaw[rn, #]& /@ Range@175], {rn,0,1}, 
+    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
+  ]
+]
+
+savePreviousPlot["plotdeltaVmonda01.pdf"];
+
+
+saveThisPlot = False;
+
+Echo[a0 = 1. 10^-15, "a0 = "];
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRAR,
+  Plot[
+    Evaluate[\[Delta]v2MondRaw[rn, #]& /@ Range@175], {rn,0,1},  
+    PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
+  ]
+]
+
+savePreviousPlot["plotdeltaVmonda015.pdf"];
+
+
+saveThisPlot = False;
+
+a0 = 1.2 10^-13;
+Clear @ list2\[Delta]v2MondRaw;
+list2\[Delta]v2MondRaw[gal_] := If[
+  gdR["Rad", gal] == {},
+  {},
+  Table[{rn, \[Delta]v2MondRaw[rn, gal]}, {rn, RandomReal[1,70]}]
+];
+list2\[Delta]v2MondRawAll = Flatten[DeleteCases[list2\[Delta]v2MondRaw /@ Range @ 175, {}], 1];
+
+distMondRaw = distributionSilverman @ list2\[Delta]v2MondRawAll;
+
+pdfValuenSigmaMondRaw[n_?NumberQ] := FindHDPDFValues[distMondRaw, nSigmaProbability[n]];
+
+plotMondRawSigma[n_] := plotMondRawSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaMondRaw[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
+  ];
+  ContourPlot[
+    PDF[distMondRaw, {x,y}] == pdfValue, 
+    {x, 0, 1}, {y, -1, 5},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
+  ]
+];
+
+plotMondRawCurves = Plot[
+  Evaluate[\[Delta]v2MondRaw[rn, #] & /@ Range@122], 
+  {rn, 0, 1}, 
+  PlotRange -> All, 
+  PlotStyle -> Directive[Opacity[0.1],
+  Blue, 
+  Thick]
+];
+
+plotMondRawContours = Show[
+  {plotMondRawSigma[1], 
+  plotMondRawSigma[2]}
+];
+  
+Show[
+  plotBackground[1.5],
+  plotSigmaRegionsRAR,
+  plotMondRawCurves,
+  plotMondRawContours,
+  Plot[{rn, 1}, {rn, 0, 1}, PlotStyle -> {{Thickness[0.003], Orange}}]
+]
+
+savePreviousPlot["plotdeltaVmondPrincipal.pdf"];
+
+
+DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];
+
+EchoTiming[
+{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
+  regionIntersection[plotMondRawSigma[1],1], 
+  regionDifference[plotMondRawSigma[1],1],
+  regionIntersection[plotMondRawSigma[2],2],
+  regionDifference[plotMondRawSigma[2],2]
+  }]
+];
+
+efficiencyNAV[1]
+efficiencyNAV[2]
+efficiencyNAVtotal[]
+
+
+saveThisPlot = False;
+
+resultsMond = Get["../AuxiliaryData/MONDRAR-Fxa0-GY-05-06-MAGMAtableResults.m"]; (*These results include 153 galaxies*)
+headerMond = First @ resultsMond;
+resultsMondData = Drop[resultsMond, 1];
+colYDMond = First @ Flatten @ Position[headerMond, "YD"];
+listYDMond = resultsMondData[[All, colYDMond]] ;
+
+Histogram[
+  Log10@listYDMond, 
+  {0.05}, 
+  PlotRange -> {All, All}, 
+  Frame -> True, 
+  Axes -> False
+]
+
+savePreviousPlot["histogramMond.pdf"];
+
+
+colChi2Mond = First @ Flatten @ Position[headerMond, "Chi2"];
+listMondChi2 = resultsMondData[[All, colChi2Mond]];
+Histogram[Log10@listMondChi2, PlotRange->All]
+Echo[Median @ listMondChi2, "Median: "];
+Echo[Total @ listMondChi2, "Total: "];
+
+
+saveThisPlot = False;
+
+resultsMondGD = Get["../AuxiliaryData/MONDRAR-Fxa0-GY-05-06-GD-MAGMAtableResults.m"]; (*These results include 153 galaxies*)
+headerMondGD = First @ resultsMondGD;
+resultsMondDataGD = Drop[resultsMondGD, 1];
+colYDMondGD = First @ Flatten @ Position[headerMondGD, "YD"];
+coldf2MondGD = First @ Flatten @ Position[headerMondGD, "df2"];
+listYDMondGD = resultsMondDataGD[[All, colYDMond]] ;
+listdf2MondGD = resultsMondDataGD[[All, coldf2MondGD]] ;
+
+Histogram[
+  Log10@listYDMondGD, 
+  {0.05}, 
+  PlotRange -> {All, All}, 
+  Frame -> True, 
+  Axes -> False
+]
+
+Histogram[
+  Log10@listdf2MondGD, 
+  {0.05}, 
+  PlotRange -> {All, All}, 
+  Frame -> True, 
+  Axes -> False
+]
+
+savePreviousPlot["histogramMondGD.pdf"];
+
+
+colChi2MondGD = First @ Flatten @ Position[headerMond, "Chi2"];
+listMondChi2GD = resultsMondDataGD[[All, colChi2MondGD]];
+Histogram[Log10@listMondChi2GD, PlotRange->All]
+Echo[Median @ listMondChi2GD, "Median: "];
+Echo[Total @ listMondChi2GD, "Total: "];
+
+
 Clear[X, \[Rho], \[Alpha],\[Gamma],\[Beta]]
 \[Alpha] = 2.94 - Log10[(10^(X + 2.33))^-1.08 + (10^(X + 2.33))^2.29];
 \[Beta] = 4.23 + 1.34 X + 0.26 X^2;
