@@ -973,25 +973,46 @@ VVDC14[rn_, rsn_, \[Rho]s_, X_] := G/(rn Rmax) MDC14[rn, rsn, \[Rho]s, X] ;
 
 
 
-\[Sigma]Silverman = 0.082; (*The vertical KDE "error". This value will not be crucial here, since it is constant.*)
+saveThisPlot = False;
+
+Clear[plotDC14GrayRed1];
+plotDC14GrayRed1[X_] := 
+Show[
+  {
+    Plot[
+      {
+        \[Delta]VDC14[rn,1,X], 
+        \[Delta]VDC14[rn,0.1,X]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Opacity[0.5], Thickness[0.005], ColorData[ "SolarColors"][(X - Xmin)/(Xmax - Xmin)]}}
+    ]
+  }
+];
+
+Show[{plotBackground[1.5],
+    plotSigmaRegionsRAR,Table[plotDC14GrayRed1[X], {X, Xmin, Xmax, 0.05}]}]
+    
+savePreviousPlot["plotDC14SunColor.pdf"];
+    
+
 
 Clear[chi2Upper, chi2Lower];
 chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NIntegrate[
-  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2/ \[Sigma]Silverman^2 ,
+  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2,
   {rn, rnStart, rnEnd}, 
   Method-> {Automatic, "SymbolicProcessing" -> 0},
-  WorkingPrecision -> 10, 
-  PrecisionGoal -> 3, 
+  PrecisionGoal -> 4, 
   AccuracyGoal -> Infinity, 
   MaxRecursion -> 10
 ];
 
 chi2Lower[rsn_?NumberQ, X_, n\[Sigma]_] := chi2Lower[rsn, X, n\[Sigma]] = NIntegrate[
-  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2/ \[Sigma]Silverman^2 , 
+  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2, 
   {rn, rnStart, rnEnd}, 
   Method-> {Automatic, "SymbolicProcessing" -> 0},
-  WorkingPrecision -> 10, 
-  PrecisionGoal -> 3, 
+  PrecisionGoal -> 4, 
   AccuracyGoal -> Infinity, 
   MaxRecursion -> 10
 ];
@@ -1013,10 +1034,26 @@ upperBound[2] = list1InterpCurvesRAR[[4]];
 Echo["Performing the optimization."];
 
 ClearAll[rsnUpper, rsnLower];
-rsnUpper[2] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 2], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
-rsnUpper[1] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 1], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
-rsnLower[2] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 2], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
-rsnLower[1] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 1], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
+rsnUpper[2] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 2], 10^3>rsn>0.01, Xmin < X < Xmax}, {rsn, X}, 
+  MaxIterations -> 500, 
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> \[Infinity]
+][[2]];
+rsnUpper[1] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 1], 10^3>rsn>0.01, Xmin < X < Xmax}, {rsn, X},
+  MaxIterations -> 500, 
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> \[Infinity]
+][[2]];
+rsnLower[2] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 2], 10^3>rsn>0.01, Xmin < X < Xmax}, {rsn, X},
+  MaxIterations -> 500, 
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> \[Infinity]
+][[2]];
+rsnLower[1] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 1], 10^3>rsn>0.01, Xmin < X < Xmax}, {rsn, X},
+  MaxIterations -> 500, 
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> \[Infinity]
+][[2]];
 
 {rsnUpperR[2], rsnUpperR[1], rsnLowerR[2], rsnLowerR[1]} = Parallelize[
   {rsnUpper[2], rsnUpper[1], rsnLower[2], rsnLower[1]}
@@ -1026,59 +1063,7 @@ Echo[{rsnUpperR[1], rsnLowerR[1]}, "{rsn, X} 1\[Sigma] bounds: "];
 Echo[{rsnUpperR[2], rsnLowerR[2]}, "{rsn, X} 2\[Sigma] bounds: "];
 
 
-\[Sigma]Silverman = 0.082; (*The vertical KDE "error". This value will not be crucial here, since it is constant.*)
-
-Clear[chi2Upper, chi2Lower];
-chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NIntegrate[
-  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2/ \[Sigma]Silverman^2 ,
-  {rn, rnStart, rnEnd}, 
-  Method-> {Automatic, "SymbolicProcessing" -> 0},
-  WorkingPrecision -> 10, 
-  PrecisionGoal -> 3, 
-  AccuracyGoal -> Infinity, 
-  MaxRecursion -> 10
-];
-
-chi2Lower[rsn_?NumberQ, X_, n\[Sigma]_] := chi2Lower[rsn, X, n\[Sigma]] = NIntegrate[
-  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2/  \[Sigma]Silverman^2 , 
-  {rn, rnStart, rnEnd}, 
-  Method-> {Automatic, "SymbolicProcessing" -> 0},
-  WorkingPrecision -> 10, 
-  PrecisionGoal -> 3, 
-  AccuracyGoal -> Infinity, 
-  MaxRecursion -> 10
-];
-
-
-(* SPECIFIC DEFINITIONS *)
-
-rnStart = 0.2;
-rnEnd = 0.9;
-
-lowerBound[1] = list1InterpCurvesRAR[[1]];
-upperBound[1] = list1InterpCurvesRAR[[2]];
-lowerBound[2] = list1InterpCurvesRAR[[3]];
-upperBound[2] = list1InterpCurvesRAR[[4]];
-
-
-(* EXECUTION *)
-
-Echo["Performing the optimization."];
-
-ClearAll[rsnUpper, rsnLower];
-rsnUpper[2] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 2], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
-rsnUpper[1] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 1], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
-rsnLower[2] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 2], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
-rsnLower[1] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 1], 50>rsn>0.1, Xmin < X < Xmax}, {rsn, X}][[2]];
-
-{rsnUpperR[2], rsnUpperR[1], rsnLowerR[2], rsnLowerR[1]} = Parallelize[
-  {rsnUpper[2], rsnUpper[1], rsnLower[2], rsnLower[1]}
-];
-
-Echo[{rsnUpperR[1], rsnLowerR[1]}, "{rsn, X} 1\[Sigma] bounds: "];
-Echo[{rsnUpperR[2], rsnLowerR[2]}, "{rsn, X} 2\[Sigma] bounds: "];
-
-
+saveThisPlot = False;
 plotDC14GlobalBestFit = Show[
   {
     plotBurkertGrayRed /. {Dashed -> Dashing[.01], Black -> Red},
@@ -1105,9 +1090,51 @@ plotDC14GlobalBestFit = Show[
 ];
 
 Echo["plotDC14GlobalBestFit:"];
-Print@plotDC14GlobalBestFit;
+plotDC14GlobalBestFit
+savePreviousPlot["plotDC14GlobalBestFit.pdf"];
 
-Export["plotDC14GlobalBestFit.pdf", plotDC14GlobalBestFit];
+
+saveThisPlot = True;
+
+min = \[Delta]VDC14[0.5, 1.91, -1.6];
+max = \[Delta]VDC14[0.5, 0.24, -3.76];
+
+plotRegionDC14low = RegionPlot[
+  min > \[Delta]VDC14[0.5, 10^logrsn, X], {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+  PlotPoints-> 100, 
+  MaxRecursion->4, 
+  Evaluate[generalOptions], 
+  BoundaryStyle->None, 
+  PlotStyle-> ColorData["SolarColors"][0.05]
+];
+
+plotRegionDC14mid = RegionPlot[
+  min < \[Delta]VDC14[0.5, 10^logrsn, X] < max, {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+  PlotPoints-> 100, 
+  MaxRecursion->4, 
+  Evaluate[generalOptions], 
+  BoundaryStyle->None, 
+  PlotStyle-> ColorData["SolarColors"][0.5]
+];
+
+plotRegionDC14high = RegionPlot[
+  \[Delta]VDC14[0.5, 10^logrsn, X] > max, {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+  PlotPoints-> 100, 
+  MaxRecursion->4, 
+  Evaluate[generalOptions], 
+  BoundaryStyle->None, 
+  PlotStyle-> ColorData["SolarColors"][0.95]
+];
+
+Show[plotRegionDC14high, plotRegionDC14mid, plotRegionDC14low]
+
+savePreviousPlot["plotRegionsDC14.pdf"];
+
+
+efficiencyNAV[\[Delta]VDC14[#,Sequence@@ rsnLowerR@ 1] &, \[Delta]VDC14[#, Sequence@@rsnUpperR@ 1] &, 1]
+efficiencyNAV[\[Delta]VDC14[#, Sequence@@rsnLowerR@ 2] &, \[Delta]VDC14[#, Sequence@@rsnUpperR@ 2] &, 2]
+Mean[{%, %%}] (*This is the same of efficiencyNAVtotal*)
+
 
 
 \[Rho]nfw[rn_, rsn_, \[Rho]s_] = \[Rho]s/(rn/rsn (1+rn/rsn)^2);
