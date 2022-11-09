@@ -253,9 +253,13 @@ Histogram[
 savePreviousPlot["histogramArctan.pdf"];
 
 
-listArctanChi2 = resultsArctanData[[All, colChi2]];
-Echo[Median @ listArctanChi2, "Median: "];
-Echo[Total @ listArctanChi2, "Total: "];
+colChi2Arctan = First @ Flatten @ Position[headerArctan, "Chi2"];
+colVChi2Arctan = First @ Flatten @ Position[headerArctan, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listArctanChi2 = resultsArctanData[[All, colChi2Arctan]];
+listArctanVChi2 = resultsArctanData[[All, colVChi2Arctan]];
+SmoothHistogram[{Log10@listArctanChi2, Log10@listArctanVChi2}, PlotRange->All]
+Echo[{Median @ listArctanChi2, Median @ listArctanVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listArctanChi2, Total @listArctanVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
 \[Delta]VarctanHalf[rn_, rtn_] = ArcTan[rn/rtn]/ArcTan[1/rtn];
@@ -395,9 +399,13 @@ Histogram[
 savePreviousPlot["histogramArctanHalf.pdf"];
 
 
-listArctanHalfChi2 = resultsArctanHalfData[[All, colChi2]];
-Echo[Median @ listArctanHalfChi2, "Median: "];
-Echo[Total @ listArctanHalfChi2, "Total: "];
+colChi2ArctanHalf = First @ Flatten @ Position[headerArctanHalf, "Chi2"];
+colVChi2ArctanHalf = First @ Flatten @ Position[headerArctanHalf, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listArctanHalfChi2 = resultsArctanHalfData[[All, colChi2ArctanHalf]];
+listArctanHalfVChi2 = resultsArctanHalfData[[All, colVChi2ArctanHalf]];
+SmoothHistogram[{Log10@listArctanHalfChi2, Log10@listArctanHalfVChi2}, PlotRange->All]
+Echo[{Median @ listArctanHalfChi2, Median @ listArctanHalfVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listArctanHalfChi2, Total @listArctanHalfVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
 saveThisPlot = False;
@@ -566,10 +574,13 @@ Histogram[
 savePreviousPlot["histogramBurkert.pdf"];
 
 
-listBurkertChi2 = resultsBurkertData[[All, colChi2]];
-Histogram[Log10@listBurkertChi2, PlotRange->All]
-Echo[Median @ listBurkertChi2, "Median: "];
-Echo[Total @ listBurkertChi2, "Total: "];
+colChi2Burkert = First @ Flatten @ Position[headerBurkert, "Chi2"];
+colVChi2Burkert = First @ Flatten @ Position[headerBurkert, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listBurkertChi2 = resultsBurkertData[[All, colChi2Burkert]];
+listBurkertVChi2 = resultsBurkertData[[All, colVChi2Burkert]];
+SmoothHistogram[{Log10@listBurkertChi2, Log10@listBurkertVChi2}, PlotRange->All]
+Echo[{Median @ listBurkertChi2, Median @ listBurkertVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listBurkertChi2, Total @listBurkertVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
 \[Rho]nfw[rn_, rsn_, \[Rho]s_] = \[Rho]s/(rn/rsn (1+rn/rsn)^2);
@@ -606,7 +617,7 @@ Echo["plotNFWGrayRed:"];
 Print@plotNFWGrayRed;
 
 
-saveThisPlot = True;
+saveThisPlot = False;
 
 Clear[chi2Upper, chi2Lower];
 chi2Upper[rsn_?NumberQ, n\[Sigma]_]:= (*chi2Upper[rcn, n\[Sigma]] =*) NIntegrate[
@@ -644,6 +655,8 @@ upperBound[2] = list1InterpCurvesRAR[[4]];
 (* EXECUTION *)
 
 Echo["Performing the optimization."];
+
+Clear[rsnUpper, rsnLower];
 
 rsnUpper[2] = rsn /. NMinimize[{chi2Upper[rsn,2], rsn > 0}, {rsn, 0, 1}][[2]];
 rsnUpper[1] = rsn /. NMinimize[{chi2Upper[rsn,1], rsn > 0}, {rsn, 0, 1}][[2]];
@@ -717,10 +730,13 @@ Histogram[
 savePreviousPlot["histogramNFW.pdf"];
 
 
-listNFWChi2 = resultsNFWDataRAR[[All, colChi2]];
-Histogram[Log10@listNFWChi2, PlotRange->All]
-Echo[Median @ listNFWChi2, "Median: "];
-Echo[Total @ listNFWChi2, "Total: "];
+colChi2NFW = First @ Flatten @ Position[headerNFW, "Chi2"];
+colVChi2NFW = First @ Flatten @ Position[headerNFW, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listNFWChi2 = resultsNFWData[[All, colChi2NFW]];
+listNFWVChi2 = resultsNFWData[[All, colVChi2NFW]];
+SmoothHistogram[{Log10@listNFWChi2, Log10@listNFWVChi2}, PlotRange->All]
+Echo[{Median @ listNFWChi2, Median @ listNFWVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listNFWChi2, Total @listNFWVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
 saveThisPlot = False;
@@ -890,10 +906,12 @@ savePreviousPlot["histogramMond.pdf"];
 
 
 colChi2Mond = First @ Flatten @ Position[headerMond, "Chi2"];
+colVChi2Mond = First @ Flatten @ Position[headerMond, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
 listMondChi2 = resultsMondData[[All, colChi2Mond]];
-Histogram[Log10@listMondChi2, PlotRange->All]
-Echo[Median @ listMondChi2, "Median: "];
-Echo[Total @ listMondChi2, "Total: "];
+listMondVChi2 = resultsMondData[[All, colVChi2Mond]];
+SmoothHistogram[{Log10@listMondChi2, Log10@listMondVChi2}, PlotRange->All]
+Echo[{Median @ listMondChi2, Median @ listMondVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listMondChi2, Total @listMondVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
 saveThisPlot = False;
@@ -925,11 +943,13 @@ Histogram[
 savePreviousPlot["histogramMondGD.pdf"];
 
 
-colChi2MondGD = First @ Flatten @ Position[headerMond, "Chi2"];
-listMondChi2GD = resultsMondDataGD[[All, colChi2MondGD]];
-Histogram[Log10@listMondChi2GD, PlotRange->All]
-Echo[Median @ listMondChi2GD, "Median: "];
-Echo[Total @ listMondChi2GD, "Total: "];
+colChi2MondGD = First @ Flatten @ Position[headerMondGD, "Chi2"];
+colVChi2MondGD = First @ Flatten @ Position[headerMondGD, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listMondGDChi2 = resultsMondDataGD[[All, colChi2MondGD]];
+listMondGDVChi2 = resultsMondDataGD[[All, colVChi2MondGD]];
+SmoothHistogram[{Log10@listMondGDChi2, Log10@listMondGDVChi2}, PlotRange->All]
+Echo[{Median @ listMondGDChi2, Median @ listMondGDVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listMondGDChi2, Total @listMondGDVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
 Clear[X, \[Rho], \[Alpha],\[Gamma],\[Beta]]
@@ -1094,7 +1114,7 @@ plotDC14GlobalBestFit
 savePreviousPlot["plotDC14GlobalBestFit.pdf"];
 
 
-saveThisPlot = True;
+saveThisPlot = False;
 
 min = \[Delta]VDC14[0.5, 1.91, -1.6];
 max = \[Delta]VDC14[0.5, 0.24, -3.76];
@@ -1126,7 +1146,7 @@ plotRegionDC14high = RegionPlot[
   PlotStyle-> ColorData["SolarColors"][0.95]
 ];
 
-Show[plotRegionDC14high, plotRegionDC14mid, plotRegionDC14low]
+Show[plotRegionDC14high, plotRegionDC14mid, plotRegionDC14low, AspectRatio -> 1/GoldenRatio]
 
 savePreviousPlot["plotRegionsDC14.pdf"];
 
@@ -1135,6 +1155,28 @@ efficiencyNAV[\[Delta]VDC14[#,Sequence@@ rsnLowerR@ 1] &, \[Delta]VDC14[#, Seque
 efficiencyNAV[\[Delta]VDC14[#, Sequence@@rsnLowerR@ 2] &, \[Delta]VDC14[#, Sequence@@rsnUpperR@ 2] &, 2]
 Mean[{%, %%}] (*This is the same of efficiencyNAVtotal*)
 
+
+
+saveThisPlot = True;
+
+SmoothHistogram[{
+  Log10@listBurkertVChi2, 
+  Log10@listArctanVChi2, 
+  Log10@listNFWVChi2, 
+  Log10@listArctanHalfVChi2,
+  Log10@listMondVChi2GD,
+  Log10@listMondVChi2
+},
+  0.000001, "CDF", 
+  PlotRange->{{-2, 4}, {-0.05, 1.05}}, Frame -> True, Axes->False,
+  PlotLegends->Placed[{"Burkert", "\!\(\*SubscriptBox[\(Arctan\), \(\[Alpha] = 1\)]\)", "NFW", "\!\(\*SubscriptBox[\(Arctan\), \(\[Alpha] = 1/2\)]\)", "\!\(\*SubscriptBox[\(MOND\), \(\(dist\)\(.\)\)]\)", "MOND"}, {Left, Center}],   
+  PlotStyle-> {{Thickness[0.01], Opacity[0.6]}},
+  PlotTheme->{"Scientific", "Frame", "BoldColor"},
+  AspectRatio-> 1/GoldenRatio,
+  Evaluate[generalOptions]
+]
+
+savePreviousPlot["plotCDFcomparison.pdf"];
 
 
 \[Rho]nfw[rn_, rsn_, \[Rho]s_] = \[Rho]s/(rn/rsn (1+rn/rsn)^2);
