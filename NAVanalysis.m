@@ -47,19 +47,37 @@ savePreviousPlot[fileName_] := If[saveThisPlot || saveAllPlots,
 
 saveThisPlot = False;
 
-Clear[b, loga, model, logR];
-model = b logR - loga;
-{b , loga} = {b, loga} /. FindFit[Re[{Log10[#1] , Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}],1]],  model , {b , loga} , logR]
+dataDeltaVobs = Block[{rawData},
+  rawData = Re[{Log10[#1] , Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}],1]];
+  Select[rawData, #[[1]] > 0 &]
+];
+
+Clear[b, loga, model, logR, loga0];
+model0 = logR + loga0;
+loga0 = loga0 /. First@FindFit[dataDeltaVobs,  model0 ,  {loga0} , logR]
+
+Clear[loga];
+model = b logR + loga;
+{b , loga} = {b, loga} /. FindFit[dataDeltaVobs,  model , {b , loga} , logR]
 
 Show[
   plotBlueZero[
     {Log10[#1], Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}], 1], 
-    PlotRange-> {{0,2}, {1,5.5}}
+    PlotRange-> {{-0.0,2.1}, {1.5,5.5}}
   ],
-  Plot[{Log10[10^logR/0.0015], model}, {logR, 0, 3}, PlotStyle->{{Black, Dashed}, Black}]
+  Plot[
+    {
+      model
+      (*model0*)
+      (*Log10[10^2.9410^logR]*) (*McGaugh et al 2007 fit for a different sample*)
+    }, 
+    {logR, -1, 3}, 
+    PlotStyle->{{Black, Thick, Dashed}, {Black, Thick}, {Black, DotDashed}},
+    PlotRange->All
+  ]
 ]
 
-savePreviousPlot["DeltaV2analysis.pdf"];
+savePreviousPlot["plotDeltaV2analysis.pdf"];
 
 
 saveThisPlot = False;
