@@ -68,8 +68,6 @@ Show[
   Plot[
     {
       model
-      (*model0*)
-      (*Log10[10^2.9410^logR]*) (*McGaugh et al 2007 fit for a different sample*)
     }, 
     {logR, -1, 3}, 
     PlotStyle->{{Black, Thick, Dashed}, {Black, Thick}, {Black, DotDashed}},
@@ -565,6 +563,12 @@ Print@plotBurkertGlobalBestFit;
 Export["plotBurkertGlobalBestFit.pdf", plotBurkertGlobalBestFit];
 
 
+efficiencyNAV[\[Delta]Vbrkt[#, rcnLower@ 1] &, \[Delta]Vbrkt[#, rcnUpper@ 1] &, 1]
+efficiencyNAV[\[Delta]Vbrkt[#, rcnLower@ 2] &, \[Delta]Vbrkt[#, rcnUpper@ 2] &, 2]
+(0.68%% + 0.27 %)/0.95
+efficiencyNAVtotal[\[Delta]Vbrkt[#, rcnLower@ 1] &, \[Delta]Vbrkt[#, rcnUpper@ 1] &, \[Delta]Vbrkt[#, rcnLower@ 2] &, \[Delta]Vbrkt[#, rcnUpper@ 2] &]
+
+
 saveThisPlot = False;
 
 resultsBurkert = Get["../AuxiliaryData/Burkert-GY-05-06-MAGMAtableResults.m"]; (*These results include all 175 galaxies*)
@@ -923,6 +927,11 @@ Histogram[
 savePreviousPlot["histogramMond.pdf"];
 
 
+Median[Log10@listYDMond]
+Mean[Log10@listYDMond]
+StandardDeviation[Log10@listYDMond]
+
+
 colChi2Mond = First @ Flatten @ Position[headerMond, "Chi2"];
 colVChi2Mond = First @ Flatten @ Position[headerMond, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
 listMondChi2 = resultsMondData[[All, colChi2Mond]];
@@ -959,6 +968,16 @@ Histogram[
 ]
 
 savePreviousPlot["histogramMondGD.pdf"];
+
+
+Median[Log10@listYDMondGD]
+Mean[Log10@listYDMondGD]
+StandardDeviation[Log10@listYDMondGD]
+
+
+Median[Log10@listdf2MondGD]
+Mean[Log10@listdf2MondGD]
+StandardDeviation[Log10@listdf2MondGD]
 
 
 colChi2MondGD = First @ Flatten @ Position[headerMondGD, "Chi2"];
