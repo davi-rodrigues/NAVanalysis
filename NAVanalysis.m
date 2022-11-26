@@ -27,9 +27,6 @@ pathBaseDirectory = NotebookDirectory[];
 pathOutputDirectory = FileNameJoin[{pathBaseDirectory, "Output"}];
 pathAuxDirectory = FileNameJoin[{pathBaseDirectory, "AuxiliaryData"}];
 
-datasetExpVdiskNoBulge = Import[FileNameJoin[{pathOutputDirectory, "datasetExpVdiskNoBulge.m"}]]; (*Loads the exponential approximations for the stellar disk as a DataSet*)
-datasetExpVgasNoBulge = Import[FileNameJoin[{pathOutputDirectory, "datasetExpVgasNoBulge.m"}]]; (*The same as above, but for the gas.*)
-
 SetDirectory @ pathBaseDirectory;
 
 Needs @ "NAVbaseCode`";
@@ -238,7 +235,6 @@ savePreviousPlot["plotArctanGlobalBestFit.pdf"];
 
 efficiencyNAV[\[Delta]Varctan[#, rtnLower@ 1] &, \[Delta]Varctan[#, rtnUpper@ 1] &, 1]
 efficiencyNAV[\[Delta]Varctan[#, rtnLower@ 2] &, \[Delta]Varctan[#, rtnUpper@ 2] &, 2]
-(0.68%% + 0.27 %)/0.95
 efficiencyNAVtotal[\[Delta]Varctan[#, rtnLower@ 1] &, \[Delta]Varctan[#, rtnUpper@ 1] &, \[Delta]Varctan[#, rtnLower@ 2] &, \[Delta]Varctan[#, rtnUpper@ 2] &]
 
 
@@ -273,7 +269,6 @@ colChi2Arctan = First @ Flatten @ Position[headerArctan, "Chi2"];
 colVChi2Arctan = First @ Flatten @ Position[headerArctan, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
 listArctanChi2 = resultsArctanData[[All, colChi2Arctan]];
 listArctanVChi2 = resultsArctanData[[All, colVChi2Arctan]];
-SmoothHistogram[{Log10@listArctanChi2, Log10@listArctanVChi2}, PlotRange->All]
 Echo[{Median @ listArctanChi2, Median @ listArctanVChi2}, "Median {Chi2, Chi2Eff}: "];
 Echo[{Total @ listArctanChi2, Total @listArctanVChi2}, "Total {Chi2, Chi2Eff}: "];
 
@@ -382,10 +377,11 @@ Print@plotArctanHalfGlobalBestFit;
 savePreviousPlot["plotArctanHalfGlobalBestFit.pdf"];
 
 
+Off[NIntegrate::izero];
 efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 1] &, \[Delta]VarctanHalf[#, rtnUpper@ 1] &, 1]
 efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnUpper@ 2] &, 2]
-(0.68%% + 0.27 %)/0.95
-efficiencyNAVtotal[\[Delta]VarctanHalf[#, rtnLower@ 1] &, \[Delta]VarctanHalf[#, rtnUpper@ 1] &, \[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnUpper@ 2] &]
+Mean[{%, %%}]
+On[NIntegrate::izero];
 
 
 saveThisPlot = False;
@@ -419,41 +415,8 @@ colChi2ArctanHalf = First @ Flatten @ Position[headerArctanHalf, "Chi2"];
 colVChi2ArctanHalf = First @ Flatten @ Position[headerArctanHalf, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
 listArctanHalfChi2 = resultsArctanHalfData[[All, colChi2ArctanHalf]];
 listArctanHalfVChi2 = resultsArctanHalfData[[All, colVChi2ArctanHalf]];
-SmoothHistogram[{Log10@listArctanHalfChi2, Log10@listArctanHalfVChi2}, PlotRange->All]
 Echo[{Median @ listArctanHalfChi2, Median @ listArctanHalfVChi2}, "Median {Chi2, Chi2Eff}: "];
 Echo[{Total @ listArctanHalfChi2, Total @listArctanHalfVChi2}, "Total {Chi2, Chi2Eff}: "];
-
-
-saveThisPlot = False;
-
-resultsArctanHalfFixed = Get["../AuxiliaryData/arctanHalf-Fixed-05-06-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
-headerArctanHalfFixed = First @ resultsArctanHalfFixed;
-resultsArctanHalfDataFixed = Drop[resultsArctanHalfFixed, 1];
-colRt = First @ Flatten @ Position[headerArctanHalfFixed, "Rt"];
-listRtnHalfFixed = resultsArctanHalfDataFixed[[All, colRt]] / (rmax153 /@ Range @ 153);
-rectangle = {
-  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
-  Lighter[Blue, 0.5],
-  Opacity @ 0.2,
-  Rectangle[{Log10@rtnUpper @ 1, 0}, {Log10@rtnLower @ 1, 100}]
-};
-
-Histogram[
-  Log10 @ listRtnHalfFixed, 
-  {0.2}, 
-  PlotRange -> All,
-  Frame -> True, 
-  Axes -> False, 
-  Epilog -> {rectangle},
-  histoOptions
-]
-
-savePreviousPlot["histogramArctanHalfFixed.pdf"];
-
-
-listArctanHalfChi2Fixed = resultsArctanHalfDataFixed[[All, colChi2]];
-Echo[Median @ listArctanHalfChi2Fixed, "Median: "];
-Echo[Total @ listArctanHalfChi2Fixed, "Total: "];
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
@@ -486,7 +449,7 @@ Echo["plotBurkertGrayRed:"];
 Print@plotBurkertGrayRed;
 
 
-
+saveThisPlot = False;
 
 Clear[chi2Upper, chi2Lower];
 chi2Upper[rcn_?NumberQ, n\[Sigma]_]:= (*chi2Upper[rcn, n\[Sigma]] =*) NIntegrate[
@@ -558,15 +521,14 @@ plotBurkertGlobalBestFit = Show[
 ];
 
 Echo["plotBurkertGlobalBestFit:"];
-Print@plotBurkertGlobalBestFit;
+Print @ plotBurkertGlobalBestFit;
 
-Export["plotBurkertGlobalBestFit.pdf", plotBurkertGlobalBestFit];
+savePreviousPlot["plotBurkertGlobalBestFit.pdf"];
 
 
 efficiencyNAV[\[Delta]Vbrkt[#, rcnLower@ 1] &, \[Delta]Vbrkt[#, rcnUpper@ 1] &, 1]
 efficiencyNAV[\[Delta]Vbrkt[#, rcnLower@ 2] &, \[Delta]Vbrkt[#, rcnUpper@ 2] &, 2]
-(0.68%% + 0.27 %)/0.95
-efficiencyNAVtotal[\[Delta]Vbrkt[#, rcnLower@ 1] &, \[Delta]Vbrkt[#, rcnUpper@ 1] &, \[Delta]Vbrkt[#, rcnLower@ 2] &, \[Delta]Vbrkt[#, rcnUpper@ 2] &]
+Mean[{%, %%}]
 
 
 saveThisPlot = False;
@@ -600,7 +562,6 @@ colChi2Burkert = First @ Flatten @ Position[headerBurkert, "Chi2"];
 colVChi2Burkert = First @ Flatten @ Position[headerBurkert, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
 listBurkertChi2 = resultsBurkertData[[All, colChi2Burkert]];
 listBurkertVChi2 = resultsBurkertData[[All, colVChi2Burkert]];
-SmoothHistogram[{Log10@listBurkertChi2, Log10@listBurkertVChi2}, PlotRange->All]
 Echo[{Median @ listBurkertChi2, Median @ listBurkertVChi2}, "Median {Chi2, Chi2Eff}: "];
 Echo[{Total @ listBurkertChi2, Total @listBurkertVChi2}, "Total {Chi2, Chi2Eff}: "];
 
@@ -613,12 +574,10 @@ VVnfw[rn_, rsn_, \[Rho]s_, Rmax_] = (G / Rmax) * Mnfw[rn, rsn, \[Rho]s] / rn;
 \[Delta]Vnfw[rn_, rsn_] = FullSimplify[
   VVnfw[rn, rsn, \[Rho]s, Rmax] / VVnfw[1, rsn, \[Rho]s, Rmax],
   Assumptions -> {0 < rn < 1, 0 < Rmax}
-]
+];
 
 \[Delta]VnfwLargeRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> \[Infinity]]
 \[Delta]VnfwSmallRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> 0]
-
-
 plotNFWGrayRed = Show[
   {
     plotBackground[1.5],
@@ -666,7 +625,7 @@ chi2Lower[rsn_?NumberQ, n\[Sigma]_]:= chi2Lower[rsn, n\[Sigma]] = NIntegrate[
 (* SPECIFIC DEFINITIONS *)
 
 rnStart = 0.2;
-rnEnd=0.9;
+rnEnd = 0.9;
 
 lowerBound[1] = list1InterpCurvesRAR[[1]];
 upperBound[1] = list1InterpCurvesRAR[[2]];
@@ -720,8 +679,7 @@ savePreviousPlot["plotNFWGlobalBestFit.pdf"];
 
 efficiencyNAV[\[Delta]Vnfw[#, rsnLower@ 1] &, \[Delta]Vnfw[#, rsnUpper@ 1] &, 1]
 efficiencyNAV[\[Delta]Vnfw[#, rsnLower@ 2] &, \[Delta]Vnfw[#, rsnUpper@ 2] &, 2]
-(0.68%% + 0.27 %)/0.95
-efficiencyNAVtotal[\[Delta]Vnfw[#, rsnLower@ 1] &, \[Delta]Vnfw[#, rsnUpper@ 1] &, \[Delta]Vnfw[#, rsnLower@ 2] &, \[Delta]Vnfw[#, rsnUpper@ 2] &]
+Mean[{%, %%}]
 
 
 saveThisPlot = False;
@@ -756,44 +714,11 @@ colChi2NFW = First @ Flatten @ Position[headerNFW, "Chi2"];
 colVChi2NFW = First @ Flatten @ Position[headerNFW, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
 listNFWChi2 = resultsNFWData[[All, colChi2NFW]];
 listNFWVChi2 = resultsNFWData[[All, colVChi2NFW]];
-SmoothHistogram[{Log10@listNFWChi2, Log10@listNFWVChi2}, PlotRange->All]
 Echo[{Median @ listNFWChi2, Median @ listNFWVChi2}, "Median {Chi2, Chi2Eff}: "];
 Echo[{Total @ listNFWChi2, Total @listNFWVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
 saveThisPlot = False;
-
-resultsNFWfixed = Get["../AuxiliaryData/NFW-Fixed-05-06-v2-MAGMAtableResults.m"]; (*These results include all 175 galaxies*)
-headerNFWfixed = First @ resultsNFWfixed;
-resultsNFWDataFixed = Drop[resultsNFWfixed, 1];
-colRsFixed = First @ Flatten @ Position[headerNFWfixed, "rS"];
-resultsNFWDataRARfixed = Delete[resultsNFWDataFixed,  GalaxiesOutsideRAR];
-listRsnRARfixed = resultsNFWDataRARfixed[[All, colRs]] / (rmax153 /@ Range @ 153);
-rectangle = {
-  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
-  Lighter[Blue, 0.5],
-  Opacity @ 0.2,
-  Rectangle[{Log10@rsnUpper @ 1, 0}, {Log10@rsnLower @ 1, 100}]
-};
-
-Histogram[
-  Log10 @ listRsnRARfixed, 
-  {0.2}, 
-  PlotRange -> {All, All}, 
-  Frame -> True, 
-  Axes -> False, 
-  Epilog -> {rectangle},
-  histoOptions
-]
-
-savePreviousPlot["histogramNFWfixed.pdf"];
-
-
-listNFWChi2Fixed = resultsNFWDataRARfixed[[All, colChi2]];
-Histogram[Log10@listNFWChi2Fixed, PlotRange->All]
-Echo[Median @ listNFWChi2Fixed, "Median: "];
-Echo[Total @ listNFWChi2Fixed, "Total: "];
-
 
 Clear[a0, \[CapitalDelta]VVmodel, VVmodel, \[Delta]VVmodel];
 
@@ -936,7 +861,6 @@ colChi2Mond = First @ Flatten @ Position[headerMond, "Chi2"];
 colVChi2Mond = First @ Flatten @ Position[headerMond, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
 listMondChi2 = resultsMondData[[All, colChi2Mond]];
 listMondVChi2 = resultsMondData[[All, colVChi2Mond]];
-SmoothHistogram[{Log10@listMondChi2, Log10@listMondVChi2}, PlotRange->All]
 Echo[{Median @ listMondChi2, Median @ listMondVChi2}, "Median {Chi2, Chi2Eff}: "];
 Echo[{Total @ listMondChi2, Total @listMondVChi2}, "Total {Chi2, Chi2Eff}: "];
 
@@ -984,7 +908,6 @@ colChi2MondGD = First @ Flatten @ Position[headerMondGD, "Chi2"];
 colVChi2MondGD = First @ Flatten @ Position[headerMondGD, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
 listMondGDChi2 = resultsMondDataGD[[All, colChi2MondGD]];
 listMondGDVChi2 = resultsMondDataGD[[All, colVChi2MondGD]];
-SmoothHistogram[{Log10@listMondGDChi2, Log10@listMondGDVChi2}, PlotRange->All]
 Echo[{Median @ listMondGDChi2, Median @ listMondGDVChi2}, "Median {Chi2, Chi2Eff}: "];
 Echo[{Total @ listMondGDChi2, Total @listMondGDVChi2}, "Total {Chi2, Chi2Eff}: "];
 
@@ -1190,18 +1113,18 @@ savePreviousPlot["plotRegionsDC14.pdf"];
 
 efficiencyNAV[\[Delta]VDC14[#,Sequence@@ rsnLowerR@ 1] &, \[Delta]VDC14[#, Sequence@@rsnUpperR@ 1] &, 1]
 efficiencyNAV[\[Delta]VDC14[#, Sequence@@rsnLowerR@ 2] &, \[Delta]VDC14[#, Sequence@@rsnUpperR@ 2] &, 2]
-Mean[{%, %%}] (*This is the same of efficiencyNAVtotal*)
+Mean[{%, %%}] 
 
 
 
-saveThisPlot = True;
+saveThisPlot = False;
 
 SmoothHistogram[{
   Log10@listBurkertVChi2, 
   Log10@listArctanVChi2, 
   Log10@listNFWVChi2, 
   Log10@listArctanHalfVChi2,
-  Log10@listMondVChi2GD,
+  Log10@listMondGDVChi2,
   Log10@listMondVChi2
 },
   0.000001, "CDF", 
@@ -1214,773 +1137,6 @@ SmoothHistogram[{
 ]
 
 savePreviousPlot["plotCDFcomparison.pdf"];
-
-
-\[Rho]nfw[rn_, rsn_, \[Rho]s_] = \[Rho]s/(rn/rsn (1+rn/rsn)^2);
-
-Mnfw[rn_, rsn_, \[Rho]s_] = 4 \[Pi] Rmax^3  Integrate[\[Rho]nfw[rnprime, rsn, \[Rho]s] rnprime^2, {rnprime, 0, rn}, Assumptions-> {rn>0, rsn>0}];
-
-MSaddnfw[rn_, rsn_, \[Rho]s_] = rn^2 \!\(
-\*SubscriptBox[\(\[PartialD]\), \(rn\)]\(
-\*SubscriptBox[\(\[PartialD]\), \(rn\)]Mnfw[rn, \ rsn, \ \[Rho]s]\)\); (* the effective additional mass*)
-
-MSnfw[rn_, rsn_, \[Rho]s_, \[Gamma]_] = Mnfw[rn, rsn, \[Rho]s] + \[Gamma] MSaddnfw[rn, rsn, \[Rho]s]; (*The total effective halo mass*)
-
-VVSnfw[rn_, rsn_, \[Rho]s_, \[Gamma]_] = G/Rmax MSnfw[rn, rsn, \[Rho]s, \[Gamma]] /rn;
-
-\[Delta]VSnfw[rn_, rsn_, \[Gamma]_] = FullSimplify[
-  VVSnfw[rn, rsn, \[Rho]s, \[Gamma]] / VVSnfw[1, rsn, \[Rho]s, \[Gamma]],
-  Assumptions -> {0 < rn < 1, 0 < rsn < 1, 0 < Rmax}
-];
-
-
-\[Gamma]min = -0.5;
-\[Gamma]max = 1; (*I could have used \[Gamma]max = 2, but it gets far away from the observational data*)
-
-n\[Gamma] = (\[Gamma]max - \[Gamma]min)/0.05 + 1;
-
-plotSNFWGrayRed = Show[
-  {
-    plotBackground[2.0],
-    plotSigmaRegionsRAR,
-    Plot[
-      {
-        Evaluate@Table[\[Delta]VSnfw[rn, 10, X], {X, \[Gamma]min, \[Gamma]max, 0.05}], 
-        Evaluate@Table[\[Delta]VSnfw[rn, 0.1, X], {X, \[Gamma]min, \[Gamma]max, 0.05}],
-        \[Delta]VSnfw[rn, 0.1, 0],
-        \[Delta]VSnfw[rn, 10, 0]
-      },
-      {rn, 0, 1},
-      PlotRange -> All,
-      PlotStyle -> {Sequence@@Table[{Opacity[0.5], Thickness[0.01], ColorData["Rainbow"][i/n\[Gamma]]}, {i, n\[Gamma]}], Sequence@@Table[{Opacity[0.5], Thickness[0.01], ColorData["Rainbow"][i/n\[Gamma]]}, {i, n\[Gamma]}], {Black}, {Black}}
-    ]
-  }
-]
-
-
-\[Sigma]Silverman = 0.082; (*The vertical KDE "error". This value will not be crucial here, since it is constant.*)
-
-Clear[chi2Upper, chi2Lower];
-chi2Upper[rsn_?NumberQ, \[Gamma]_, n\[Sigma]_]:= chi2Upper[rsn, \[Gamma], n\[Sigma]] =  NIntegrate[
-  (upperBound[n\[Sigma]][rn] - \[Delta]VSnfw[rn, rsn, \[Gamma]])^2/ \[Sigma]Silverman^2 ,
-  {rn, rnStart, rnEnd}, 
-  Method-> {Automatic, "SymbolicProcessing" -> 0},
-  WorkingPrecision -> 10, 
-  PrecisionGoal -> 3, 
-  AccuracyGoal -> Infinity, 
-  MaxRecursion -> 10
-];
-
-chi2Lower[rsn_?NumberQ, \[Gamma]_, n\[Sigma]_] := chi2Lower[rsn, \[Gamma], n\[Sigma]] = NIntegrate[
-  (lowerBound[n\[Sigma]][rn]- \[Delta]VSnfw[rn,rsn, \[Gamma]])^2/  \[Sigma]Silverman^2 , 
-  {rn, rnStart, rnEnd}, 
-  Method-> {Automatic, "SymbolicProcessing" -> 0},
-  WorkingPrecision -> 10, 
-  PrecisionGoal -> 3, 
-  AccuracyGoal -> Infinity, 
-  MaxRecursion -> 10
-];
-
-
-(* SPECIFIC DEFINITIONS *)
-
-rnStart = 0.2;
-rnEnd = 0.9;
-
-lowerBound[1] = list1InterpCurvesRAR[[1]];
-upperBound[1] = list1InterpCurvesRAR[[2]];
-lowerBound[2] = list1InterpCurvesRAR[[3]];
-upperBound[2] = list1InterpCurvesRAR[[4]];
-
-
-(* EXECUTION *)
-
-Echo["Performing the optimization."];
-
-ClearAll[rsnUpper, rsnLower];
-rsnUpper[2] :=  {rsn, \[Gamma]} /. NMinimize[{chi2Upper[rsn, \[Gamma], 2], 50>rsn>0.1, \[Gamma]min < \[Gamma] < \[Gamma]max}, {rsn, \[Gamma]}][[2]];
-rsnUpper[1] :=  {rsn, \[Gamma]} /. NMinimize[{chi2Upper[rsn, \[Gamma], 1], 50>rsn>0.1, \[Gamma]min < \[Gamma] < \[Gamma]max}, {rsn, \[Gamma]}][[2]];
-rsnLower[2] :=  {rsn, \[Gamma]} /. NMinimize[{chi2Lower[rsn, \[Gamma], 2], 50>rsn>0.1, \[Gamma]min < \[Gamma] < \[Gamma]max}, {rsn, \[Gamma]}][[2]];
-rsnLower[1] :=  {rsn, \[Gamma]} /. NMinimize[{chi2Lower[rsn, \[Gamma], 1], 50>rsn>0.1, \[Gamma]min < \[Gamma] < \[Gamma]max}, {rsn, \[Gamma]}][[2]];
-
-{rsnUpperR[2], rsnUpperR[1], rsnLowerR[2], rsnLowerR[1]} = Parallelize[
-  {rsnUpper[2], rsnUpper[1], rsnLower[2], rsnLower[1]}
-];
-
-Echo[{rsnUpperR[1], rsnLowerR[1]}, "{rsn, \[Gamma]} 1\[Sigma] bounds: "];
-Echo[{rsnUpperR[2], rsnLowerR[2]}, "{rsn, \[Gamma]} 2\[Sigma] bounds: "];
-
-
-plotSnfwGlobalBestFit = Show[
-  {
-    plotBurkertGrayRed /. {Dashed -> Dashing[.01], Black -> Red},
-    plotNFWGrayRed /. {Dashed -> DotDashed, Black -> Orange},
-    Plot[
-      {
-        \[Delta]VSnfw[rn, Sequence@@ rsnUpperR @ 2],
-        \[Delta]VSnfw[rn, Sequence@@ rsnUpperR @ 1],
-        \[Delta]VSnfw[rn, Sequence@@ rsnLowerR @ 2],
-        \[Delta]VSnfw[rn, Sequence@@ rsnLowerR @ 1]
-      },
-      {rn, 0, 1},
-      PlotStyle -> {
-        {Darker[Blue, 0.2], Thickness @ 0.003},
-        {Lighter[Blue, 0.5], Thickness @ 0.003}
-      },
-      Filling -> {
-        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
-        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
-      },
-      PlotRange -> All
-    ]
-  }
-];
-
-Echo["plotSnfwGlobalBestFit:"];
-Print@plotSnfwGlobalBestFit;
-
-Export["plotSnfwGlobalBestFit.pdf", plotSnfwGlobalBestFit];
-
-
-\[Gamma]best = -0.5;
-
-plotSNFWglobalGammaGrayRed = Show[
-  {
-    plotBackground[1.5],
-    plotSigmaRegionsRAR,
-    Plot[
-      {
-        \[Delta]VSnfw[rn, 1000, \[Gamma]best], 
-        \[Delta]VSnfw[rn, 0.001, \[Gamma]best]
-      },
-      {rn, 0, 1},
-      PlotRange -> All,
-      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
-    ]
-  }
-];
-
-Echo["plotSNFWglobalGammaGrayRed:"];
-Print@plotSNFWglobalGammaGrayRed;
-
-
-
-
-(* SPECIFIC DEFINITIONS *)
-
-rnStart = 0.01;
-rnEnd=0.99;
-
-lowerBound[1] = list1InterpCurvesRAR[[1]];
-upperBound[1] = list1InterpCurvesRAR[[2]];
-lowerBound[2] = list1InterpCurvesRAR[[3]];
-upperBound[2] = list1InterpCurvesRAR[[4]];
-
-
-(* EXECUTION *)
-
-Echo["Performing the optimization."];
-
-rsnUpper[2] = rsn /. NMinimize[{chi2Upper[rsn, \[Gamma]best, 2], rsn > 0}, {rsn, 0, 1}][[2]];
-rsnUpper[1] = rsn /. NMinimize[{chi2Upper[rsn, \[Gamma]best, 1], rsn > 0}, {rsn, 0, 1}][[2]];
-rsnLower[2] = rsn /. NMinimize[{chi2Lower[rsn, \[Gamma]best, 2], rsn > 0}, {rsn, 10, 1000}][[2]];
-rsnLower[1] = rsn /. NMinimize[{chi2Lower[rsn, \[Gamma]best, 1], rsn > 0}, {rsn, 10, 1000}][[2]];
-
-Echo[{rsnUpper[1], rsnLower[1]}, "rsn 1\[Sigma] bounds: "];
-Echo[{rsnUpper[2], rsnLower[2]}, "rsn 2\[Sigma] bounds: "];
-
-plotNFWGlobalGammaBestFit = Show[
-  {
-    plotSNFWglobalGammaGrayRed,
-    Plot[
-      {
-        \[Delta]VSnfw[rn, rsnUpper @ 2, \[Gamma]best],
-        \[Delta]VSnfw[rn, rsnUpper @ 1, \[Gamma]best],
-        \[Delta]VSnfw[rn, rsnLower @ 2, \[Gamma]best],
-        \[Delta]VSnfw[rn, rsnLower @ 1, \[Gamma]best]
-      },
-      {rn, 0, 1},
-      PlotStyle -> {
-        {Darker[Blue, 0.2], Thickness @ 0.003},
-        {Lighter[Blue, 0.5], Thickness @ 0.003}
-      },
-      Filling -> {
-        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
-        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
-      },
-      PlotRange -> All
-    ]
-  }
-];
-
-Echo["plotNFWGlobalGammaBestFit:"];
-Print@plotNFWGlobalGammaBestFit;
-
-Export["plotNFWGlobalGammaBestFit.pdf", plotNFWGlobalGammaBestFit];
-
-
-\[Delta]vP2g[rn_, hn_, fh_, frho_]= (rn ( E^(-(rn/hn))+  frho  fh E^(- fh rn/hn)))/( E^(-(1/hn))+  frho fh  E^(- fh /hn));
-\[Delta]v2Palatini[rn_, gal_] := \[Delta]vP2g[rn, list1hn[[gal]], list1fh[[gal]], list1frho[[gal]]];
-Show[plotBackground[4.0],
-  plotSigmaRegionsRARNoBulge,
-  Plot[Evaluate[\[Delta]v2Palatini[rn, #] & /@ Range@122], {rn, 0, 1}, 
-PlotRange -> All, 
-PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
-]
-
-
-saveThisPlot = False;
-
-Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]v2Palatini[rn, gal]}, {rn, RandomReal[1, 350]}];
-list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 122, {}], 1];
-
-list2\[Delta]VVmodelAlllimit = Select[list2\[Delta]VVmodelAll, #[[2]] < 5 &]; (*Data points with \[Delta]v larger than 5 are not considered, too far. This is just an approximation*)
-
-distPalatini = distributionSilverman[list2\[Delta]VVmodelAlllimit, 400]; (*Due to the large dispersion of data points, 400 InterpolationPoints are used*)
-pdfValuenSigmaPalatini[n_?NumberQ] := FindHDPDFValues[distPalatini, nSigmaProbability[n]];
-(*plotBluePalatini = plotBlue[list2\[Delta]VVmodelAll, list1LimitsSigmaPalatini, {{xmin, xmax - 0.01}, {-0.5, 2.5}}, PlotRange -> {{0, 0.99}, {-0.5, 2.5}}] *)
-
-Clear[plotPalatiniSigma];
-plotPalatiniSigma[n_] := plotPalatiniSigma[n] = Block[{pdfValue, contourStyle},
-  pdfValue = pdfValuenSigmaPalatini[n];
-  Which[
-    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
-    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
-    True, Automatic
-  ];
-  ContourPlot[
-    PDF[distPalatini, {x,y}] == pdfValue, 
-    {x, 0, 1}, {y, -1, 5},
-    PerformanceGoal -> "Quality", 
-    ContourStyle -> contourStyle
-  ]
-];
-
-plotPalatiniCurves = Plot[
-  Evaluate[\[Delta]v2Palatini[rn, #] & /@ Range@122], 
-  {rn, 0, 1}, 
-  PlotRange -> All, 
-  PlotStyle -> Directive[Opacity[0.1],
-  Blue, 
-  Thick]
-];
-
-plotPalatiniContours = Show[
-  {plotPalatiniSigma[1], 
-  plotPalatiniSigma[2]}
-];
-  
-Show[
-  plotBackground[4.0],
-  plotSigmaRegionsRARNoBulge,
-  plotPalatiniCurves,
-  plotPalatiniContours
-]
-
-savePreviousPlot["plotdeltaVPalatini.pdf"]
-
-
-DistributeDefinitions["NAVbaseCode`"];
-DistributeDefinitions["NAVbaseCode`Private`"];
-
-EchoTiming[
-{rI[1], rD[1]} = Parallelize[{
-  regionIntersection[plotPalatiniSigma[1],1], 
-  regionDifference[plotPalatiniSigma[1],1]
-  }]
-];
-
-efficiencyNAV[1]
-
-
-Clear[a0, \[CapitalDelta]VVmodel, VVmodel, \[Delta]VVmodel];
-
-saveThisPlot = False; (*Change this to True to save it*)
-
-v2MondRaw[R_, gal_] := R kpc aBar[R, gal]/(1 - E^-Sqrt[RealAbs[aBar[R, gal]]/a0]);
-
-\[CapitalDelta]v2MondRaw[R_, gal_] := v2MondRaw[R, gal] - aBar[R, gal] R kpc ;
-
-\[Delta]v2MondRaw[rn_, gal_] := If[gdR["Rad", gal]=={}, 
-  {}, 
-  \[CapitalDelta]v2MondRaw[rn rmax[gal], gal] / \[CapitalDelta]v2MondRaw[rmax[gal], gal]
-];
-
-Echo[a0 = 1, "a0 = "];
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRAR,
-  Plot[
-    Evaluate[\[Delta]v2MondRaw[rn, #]& /@ Range@175], {rn,0,1}, 
-    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
-  ]
-]
-
-savePreviousPlot["plotdeltaVmonda01.pdf"];
-
-
-saveThisPlot = False;
-
-Echo[a0 = 1. 10^-15, "a0 = "];
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRAR,
-  Plot[
-    Evaluate[\[Delta]v2MondRaw[rn, #]& /@ Range@175], {rn,0,1},  
-    PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
-  ]
-]
-
-savePreviousPlot["plotdeltaVmonda015.pdf"];
-
-
-saveThisPlot = False;
-
-a0 = 1.2 10^-13;
-Clear @ list2\[Delta]v2MondRaw;
-list2\[Delta]v2MondRaw[gal_] := If[
-  gdR["Rad", gal] == {},
-  {},
-  Table[{rn, \[Delta]v2MondRaw[rn, gal]}, {rn, RandomReal[1,70]}]
-];
-list2\[Delta]v2MondRawAll = Flatten[DeleteCases[list2\[Delta]v2MondRaw /@ Range @ 175, {}], 1];
-
-distMondRaw = distributionSilverman @ list2\[Delta]v2MondRawAll;
-
-pdfValuenSigmaMondRaw[n_?NumberQ] := FindHDPDFValues[distMondRaw, nSigmaProbability[n]];
-
-plotMondRawSigma[n_] := plotMondRawSigma[n] = Block[{pdfValue, contourStyle},
-  pdfValue = pdfValuenSigmaMondRaw[n];
-  Which[
-    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
-    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
-    True, Automatic
-  ];
-  ContourPlot[
-    PDF[distMondRaw, {x,y}] == pdfValue, 
-    {x, 0, 1}, {y, -1, 5},
-    PerformanceGoal -> "Quality", 
-    ContourStyle -> contourStyle
-  ]
-];
-
-plotMondRawCurves = Plot[
-  Evaluate[\[Delta]v2MondRaw[rn, #] & /@ Range@122], 
-  {rn, 0, 1}, 
-  PlotRange -> All, 
-  PlotStyle -> Directive[Opacity[0.1],
-  Blue, 
-  Thick]
-];
-
-plotMondRawContours = Show[
-  {plotMondRawSigma[1], 
-  plotMondRawSigma[2]}
-];
-  
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRAR,
-  plotMondRawCurves,
-  plotMondRawContours
-]
-
-savePreviousPlot["plotdeltaVmondPrincipal.pdf"];
-
-
-DistributeDefinitions["NAVbaseCode`"];
-DistributeDefinitions["NAVbaseCode`Private`"];
-
-EchoTiming[
-{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
-  regionIntersection[plotMondRawSigma[1],1], 
-  regionDifference[plotMondRawSigma[1],1],
-  regionIntersection[plotMondRawSigma[2],2],
-  regionDifference[plotMondRawSigma[2],2]
-  }]
-];
-
-efficiencyNAV[1]
-efficiencyNAV[2]
-efficiencyNAVtotal[]
-
-
-Clear[a0];
-
-a0Max = 1.;
-a0Min = 1. 10^-15;
-a0Std = 1.2 10^-13;
-
-aBarExp[R_, gal_] :=  vBarExp[R, gal]^2/(R kpc);
-v2MondExp[R_, gal_] := R kpc aBarExp[R, gal]/(1 - E^-Sqrt[aBarExp[R, gal]/a0]);
-\[CapitalDelta]v2MondExp[R_, gal_] := v2MondExp[R, gal] - vBarExp[R, gal]^2;
-
-\[Delta]v2MondExpAux[rn_, gal_] := \[CapitalDelta]v2MondExp[rn rmax122[gal], gal]/\[CapitalDelta]v2MondExp[rmax122[gal], gal];
-
-Clear[table\[Delta]v2MondExp, a0];
-table\[Delta]v2MondExp[a0_] = ParallelTable[{rn, \[Delta]v2MondExpAux[rn, gal]}, {gal, 122}, {rn, 0.01, 1, 0.01} ];
-
-
-
-saveThisPlot = False; (*Change this to True to save it*)
-
-Clear[\[Delta]v2MondExp];
-
-(\[Delta]v2MondExpMax[rn_, #] = Interpolation[table\[Delta]v2MondExp[a0Max][[#]], Method -> "Spline"][rn])& /@ Range@122;
-Echo[a0Max, "a0 = "];
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[
-    Evaluate[\[Delta]v2MondExpMax[rn, #]& /@ Range@122], {rn,0,1}, 
-    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
-  ]
-]
-
-savePreviousPlot["plotdeltaVmondExpa01.pdf"];
-
-
-saveThisPlot = False;
-
-(\[Delta]v2MondExpMin[rn_, #] = Interpolation[table\[Delta]v2MondExp[a0Min][[#]], Method -> "Spline"][rn])& /@ Range@122;
-Echo[a0Min, "a0 = "];
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[
-    Evaluate[\[Delta]v2MondExpMin[rn, #]& /@ Range@122], {rn,0,1}, 
-    PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
-  ]
-]
-
-savePreviousPlot["plotdeltaVmondExp015.pdf"];
-
-
-saveThisPlot = False;
-
-(\[Delta]v2MondExp[rn_, #] = Interpolation[table\[Delta]v2MondExp[a0Std][[#]], Method -> "Spline"][rn]) & /@ Range @ 122;
-
-list2\[Delta]v2MondExp[gal_] := Table[{rn, \[Delta]v2MondExp[rn, gal]}, {rn, RandomReal[1, 70]}];
-
-list2\[Delta]v2MondExpAll = Flatten[list2\[Delta]v2MondExp /@ Range @ 122, 1];
-
-distMondExp = distributionSilverman @ list2\[Delta]v2MondExpAll;
-
-pdfValuenSigmaMondExp[n_?NumberQ] := FindHDPDFValues[distMondExp, nSigmaProbability[n]];
-
-plotMondExpSigma[n_] := plotMondExpSigma[n] = Block[{pdfValue, contourStyle},
-  pdfValue = pdfValuenSigmaMondExp[n];
-  Which[
-    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
-    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
-    True, Automatic
-  ];
-  ContourPlot[
-    PDF[distMondExp, {x,y}] == pdfValue, 
-    {x, 0, 1}, {y, -1, 5},
-    PerformanceGoal -> "Quality", 
-    ContourStyle -> contourStyle
-  ]
-];
-
-plotMondExpCurves = Plot[
-  Evaluate[\[Delta]v2MondExp[rn, #] & /@ Range @ 122], 
-  {rn, 0, 1}, 
-  PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
-  PlotRange -> All
-];
-
-plotMondExpContours = Show[{plotMondExpSigma[1], plotMondExpSigma[2]}];
-
-Echo[a0Std, "a0 = "];
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  plotMondExpCurves,
-  plotMondExpContours
-]
-
-savePreviousPlot["plotdeltaVmondExpPrincipal.pdf"];
-
-
-
-DistributeDefinitions["NAVbaseCode`"];
-DistributeDefinitions["NAVbaseCode`Private`"];
-
-EchoTiming[
-{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
-  regionIntersection[plotMondExpSigma[1],1], 
-  regionDifference[plotMondExpSigma[1],1],
-  regionIntersection[plotMondExpSigma[2],2],
-  regionDifference[plotMondExpSigma[2],2]
-  }]
-];
-
-efficiencyNAV[1]
-efficiencyNAV[2]
-efficiencyNAVtotal[]
-
-
- Clear[phiExpDisk, phiExpGal, phiExpGal, \[CapitalDelta]VVRGGR, \[Delta]VVRGGR]
-
-
-\[CapitalDelta]v2Rggr[R_, gal_] := - v2Infty vBarExp[R, gal]^2 / phiBarExp[R, gal];
-
-\[Delta]v2RggrAux[rn_, gal_Integer] := \[CapitalDelta]v2Rggr[rn rmax122[gal], gal] / \[CapitalDelta]v2Rggr[rmax122[gal], gal];
-
-table\[Delta]v2Rggr = ParallelTable[{rn, \[Delta]v2RggrAux[rn, gal]}, {gal, 122}, {rn, 0.01, 1, 0.01} ];
-
-(\[Delta]v2Rggr[rn_, #] = Interpolation[table\[Delta]v2Rggr[[#]], Method -> "Spline"][rn]) & /@ Range @ 122;
-
-(*
-l1\[Delta]VVRGGR[rni_] = Block[
-  {l2\[Delta]VVRGGRAux},
-  l2\[Delta]VVRGGRAux[gali_] := Prepend[
-    Table[{rni, \[Delta]VVRGGRAux[rni, gali]}, {rni, 0.05, 1, 0.05}], 
-    {0,0}
-  ];
-  Table[
-    Interpolation[l2\[Delta]VVRGGRAux[gali]][rni], 
-  {gali, nG}
-  ]
-];
-
-\[Delta]VVRGGR[rn_, gal_] :=  l1\[Delta]VVRGGR[rn][[gal]]*)
-
-
-saveThisPlot = False; 
-
-list2\[Delta]v2Rggr[gal_] := Table[{rn, \[Delta]v2Rggr[rn, gal]}, {rn, RandomReal[1, 70]}]; (*Picks random points along each model curve*)
-
-list2\[Delta]v2RggrAll = Flatten[list2\[Delta]v2Rggr /@ Range @ 122, 1];
-
-distRggr = distributionSilverman @ list2\[Delta]v2RggrAll;
-
-pdfValuenSigmaRggr[n_?NumberQ] := FindHDPDFValues[distRggr, nSigmaProbability[n]];
-
-plotRggrSigma[n_] := plotRggrSigma[n] = Block[{pdfValue, contourStyle},
-  pdfValue = pdfValuenSigmaRggr[n];
-  Which[
-    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
-    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
-    True, Automatic
-  ];
-  ContourPlot[
-    PDF[distRggr, {x,y}] == pdfValue, 
-    {x, 0, 1}, {y, -1, 5},
-    PerformanceGoal -> "Quality", 
-    ContourStyle -> contourStyle
-  ]
-];
-
-plotRggrCurves = Plot[
-  Evaluate[\[Delta]v2Rggr[rn, #] & /@ Range @ 122], 
-  {rn, 0, 1}, 
-  PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
-  PlotRange -> All
-];
-
-plotRggrContours = Show[{plotRggrSigma[1], plotRggrSigma[2]}];
-
-Show[
-  plotBackground[2],
-  plotSigmaRegionsRARNoBulge,
-  plotRggrCurves,
-  plotRggrContours
-]
-
-savePreviousPlot["plotdeltaVRGGR.pdf"];
-
-
-DistributeDefinitions["NAVbaseCode`"];
-DistributeDefinitions["NAVbaseCode`Private`"];
-
-EchoTiming[
-{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
-  regionIntersection[plotRggrSigma[1],1], 
-  regionDifference[plotRggrSigma[1],1],
-  regionIntersection[plotRggrSigma[2],2],
-  regionDifference[plotRggrSigma[2],2]
-  }]
-];
-
-efficiencyNAV[1]
-efficiencyNAV[2]
-efficiencyNAVtotal[]
-
-
-Clear[\[Alpha], \[Mu], \[Mu]MOG, \[Mu]MOGinfty, fgas, \[CapitalDelta]D0, \[Mu]MOGstd, \[Mu]MOGinfty];
-
-D0std = 6.25 10^3; (*std = Standard value*)
-
-Off[NIntegrate::precw];
-diffAbs[r_, rprime_, \[Theta]_] = Sqrt[r^2 + rprime^2 - 2 r rprime Cos[\[Theta]]];
-
-\[CapitalDelta]v2MOG[r_, \[Alpha]_, \[Mu]_, gal_, fgas_] :=  kpc^2 G0 \[Alpha] r NIntegrate[
-  sigmaBarExpf[r, gal, fgas]/diffAbs[r, rprime, \[Theta]]^2 (1 - Exp[- \[Mu] diffAbs[r, rprime, \[Theta]]] ( 1 + \[Mu] diffAbs[r, rprime, \[Theta]])) rprime, 
-  {\[Theta], -\[Pi], \[Pi]}, {rprime, 0, 1}, 
-  Exclusions -> "Singularities", 
-  WorkingPrecision -> 30, 
-  PrecisionGoal -> 5, 
-  AccuracyGoal -> Infinity
-];
-
-\[Delta]v2MOG[rn_, \[Mu]_, gal_, fgas_:1] := \[CapitalDelta]v2MOG[rn rmax122[gal], 1, \[Mu], gal, fgas]/ \[CapitalDelta]v2MOG[rmax122[gal], 1, \[Mu], gal, fgas]; (*\[Alpha] was used here to be 1, \[Delta]v2MOG is independ from \[Alpha]*)
-\[Mu]MOG[gal_] := (D0std \[CapitalDelta]D0)/Sqrt[massExpBar[gal]];
-\[Mu]MOG[gal_, rStarEnd_, rGasEnd_, fgas_] := (D0std \[CapitalDelta]D0)/Sqrt[massExpBar[gal, rStarEnd, rGasEnd, fgas]];
-\[Mu]MOGstd[gal_] := \[Mu]MOG[gal, 4.5 hExpStar[gal], rmax122[gal], fgas];
-\[Mu]MOGinfty[gal_] := (D0std \[CapitalDelta]D0)/Sqrt[massExpInftyBar[gal]];
-
-Clear[table\[Delta]v2MOG];
-table\[Delta]v2MOG[\[Mu]_, gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu], gal, fgas]}, {rn, 0.01, 1, 0.0198} ]; (*0.198 for 50 steps per galaxy*)
-table\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOG[gal], gal, fgas]}, {rn, 0.01, 1, 0.0198} ];
-table\[Delta]v2MOGinfty[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGinfty[gal], gal, fgas]}, {rn, 0.01, 1, 0.0198} ];
-table\[Delta]v2MOGstd[gal_] := Table[{rn, \[Delta]v2MOG[rn, \[Mu]MOGstd[gal], gal, fgas]}, {rn, 0.01, 1, 0.0198} ];
-
-
-
-\[CapitalDelta]D0 = 10^-10;
-fgas = 1.5;
-
-CloseKernels[];
-LaunchKernels[];
-DistributeDefinitions["NAVbaseCode`"];
-DistributeDefinitions["NAVbaseCode`Private`"];
-ParallelEvaluate[Off[NIntegrate::precw ]];
-EchoTiming[
-  table\[Delta]v2MOGstdResults =  ParallelTable[table\[Delta]v2MOGstd[gal], {gal, 122}];
-]
-
-
-Clear[plotMOGSigma];
-
-list2\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOGstd[rn, gal]}, {rn, RandomReal[1, 200]}]; (*Picks random points along each model curve*)
-
-list2\[Delta]v2MOGAll = Select[
-  Flatten[list2\[Delta]v2MOG /@ Range @ 122, 1], 
-  #[[2]] < 5 &
-]; (*Data points with \[Delta]v2 larger than 5 are not considered, too far. This is just an approximation*)
-
-distMOG = distributionSilverman[list2\[Delta]v2MOGAll, 400]; (*Due to the large dispersion of data points, 400 InterpolationPoints are used*)
-
-pdfValuenSigmaMOG[n_?NumberQ] := FindHDPDFValues[distMOG, nSigmaProbability[n]];
-
-plotMOGSigma[n_] := plotMOGSigma[n] = Block[{pdfValue, contourStyle},
-  pdfValue = pdfValuenSigmaMOG[n];
-  Which[
-    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
-    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
-    True, Automatic
-  ];
-  ContourPlot[
-    PDF[distMOG, {x,y}] == pdfValue, 
-    {x, 0, 1}, {y, -1, 5},
-    PerformanceGoal -> "Quality", 
-    ContourStyle -> contourStyle
-  ]
-];
-
-plotMOGCurves = Plot[
-  Evaluate[\[Delta]v2MOGstd[rn, #] & /@ Range @ 122], 
-  {rn, 0, 1}, 
-  PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
-  PlotRange -> All
-];
-
-plotMOGContours = Show[{plotMOGSigma[1], plotMOGSigma[2]}];
-
-Show[
-  plotBackground[4],
-  plotSigmaRegionsRARNoBulge,
-  plotMOGCurves,
-  plotMOGContours,
-  Background-> White
-]
-
-
-(*DistributeDefinitions["NAVbaseCode`"];
-DistributeDefinitions["NAVbaseCode`Private`"];*)
-
-EchoTiming[
-{rI[1], rD[1]} = Parallelize[{
-  regionIntersection[plotMOGSigma[1],1], 
-  regionDifference[plotMOGSigma[1],1]
-  }]
-];
-
-efficiencyNAV[1]
-
-
-\[CapitalDelta]D0 = 1;
-fgas = 1.15;
-
-CloseKernels[];
-LaunchKernels[];
-DistributeDefinitions["NAVbaseCode`"];
-DistributeDefinitions["NAVbaseCode`Private`"];
-ParallelEvaluate[Off[NIntegrate::precw ]];
-EchoTiming[
-table\[Delta]v2MOGstdResults =  ParallelTable[table\[Delta]v2MOGstd[gal], {gal, 122}]; ]
-
-
-Clear[plotMOGSigma];
-
-list2\[Delta]v2MOG[gal_] := Table[{rn, \[Delta]v2MOGstd[rn, gal]}, {rn, RandomReal[1, 200]}]; (*Picks random points along each model curve*)
-
-list2\[Delta]v2MOGAll = Select[
-  Flatten[list2\[Delta]v2MOG /@ Range @ 122, 1], 
-  #[[2]] < 5 &
-]; (*Data points with \[Delta]v2 larger than 5 are not considered, too far. This is just an approximation*)
-
-distMOG = distributionSilverman[list2\[Delta]v2MOGAll, 400]; (*Due to the large dispersion of data points, 400 InterpolationPoints are used*)
-
-pdfValuenSigmaMOG[n_?NumberQ] := FindHDPDFValues[distMOG, nSigmaProbability[n]];
-
-plotMOGSigma[n_] := plotMOGSigma[n] = Block[{pdfValue, contourStyle},
-  pdfValue = pdfValuenSigmaMOG[n];
-  Which[
-    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
-    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
-    True, Automatic
-  ];
-  ContourPlot[
-    PDF[distMOG, {x,y}] == pdfValue, 
-    {x, 0, 1}, {y, -1, 5},
-    PerformanceGoal -> "Quality", 
-    ContourStyle -> contourStyle
-  ]
-];
-
-plotMOGCurves = Plot[
-  Evaluate[\[Delta]v2MOGstd[rn, #] & /@ Range @ 122], 
-  {rn, 0, 1}, 
-  PlotStyle -> Directive[Opacity[0.1], Blue, Thick], 
-  PlotRange -> All
-];
-
-plotMOGContours = Show[{plotMOGSigma[1], plotMOGSigma[2]}];
-
-Show[
-  plotBackground[4],
-  plotSigmaRegionsRARNoBulge,
-  plotMOGCurves,
-  plotMOGContours,
-  Background-> White
-]
-
-
-(*DistributeDefinitions["NAVbaseCode`"];
-DistributeDefinitions["NAVbaseCode`Private`"];*)
-
-EchoTiming[
-{rI[1], rD[1]} = Parallelize[{
-  regionIntersection[plotMOGSigma[1],1], 
-  regionDifference[plotMOGSigma[1],1]
-  }]
-];
-
-efficiencyNAV[1]
 
 
 

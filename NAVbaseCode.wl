@@ -6,13 +6,13 @@
 
 (* ::Author:: *)
 (*Davi C. Rodrigues*)
-(*July 2021 - Ago 2022*)
+(*July 2021 - Nov 2022*)
 
 
 (* 
 Examples of variables names conventions (inspired on the Hungarian convention):
-  listDFunctionName : a list of dimension D .
-  plotFunctionName : a plot .
+  listFunctionName : a list. If a number is present, like list2, denotes the dimension.
+  plotFunctionName : a plot.
   isFunctionName : a boolean variable, it is either True or False .
   distributionFunctionName : a DataDistribution .
   statusFunctionName : a function that prints miscelaneous data for status purposes.
@@ -122,10 +122,6 @@ BeginPackage["NAVbaseCode`"];
   kpc, 
   G0, 
   ckpc, 
-  (* globalDataNfwFixed, 
-  globalDataNfwGY,
-  headerGlobalDataNfwFixed, 
-  headerGlobalDataNfwGY,*) 
   efficiencyNAV, 
   areaObs, 
   positivePart, 
@@ -167,28 +163,21 @@ Begin["`Private`"];
 
 (*The following loads Burkert data. The only effect is to define TableResults. There are two options for loading the Burkert data, se below.*)
 
-isBurkertWithGaussianPriors = True; (* Loads the Burkert data with Gaussian priors (True), or the fixed case (False) *)
+(* isBurkertWithGaussianPriors = True; Loads the Burkert data with Gaussian priors (True), or the fixed case (False) *)
 
-If[isBurkertWithGaussianPriors == True,
+Get["Burkert-GY-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"]
+
+(* If[isBurkertWithGaussianPriors == True,
   Get["Burkert-GY-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"] ,
   (*else*)
   Get["Burkert-Fixed-MAGMAtableResults.m", Path -> "AuxiliaryData"] ,
   (*Neither True or False*)
   Print["The variable isBurkertWithGaussianPriors need to be set as True or False"];
   Abort[]
-];
+]; *)
 
 globalData = Drop[TableResults,1];
 headerGlobalData = TableResults[[1]];
-
-(* Get["NFW-Fixed-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"];
-globalDataNfwFixed = Drop[TableResults,1];
-headerGlobalDataNfwFixed = TableResults[[1]];
-
-Get["NFW-GY-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"];
-globalDataNfwGY = Drop[TableResults,1];
-headerGlobalDataNfwGY = TableResults[[1]]; *)
-
 Clear[TableResults];
 
 (* 
@@ -607,79 +596,9 @@ gdRBulgeless[listcols_] := gdRBulgeless[listcols] = Table[gdRBulgeless[listcols,
   ]; (*Apart from MaxExtraBandwidths and InterpolationPoints, these are the standard options for SmoothKernelDistribution*)
 
 
-(* ::Subsection::Closed:: *)
-(*Difines functions to export Burkert results in tsv format*)
-
-
-exportBurkertIndividualResultsGaussian:= Block[
-  {dataBurkertFitsExport},
-  If[isBurkertWithGaussianPriors == True, Null, Print["This requires isBurkertWithGaussianPriors==True. Try exportBurkertIndividualResultsFixed."]; Abort[]];
-  Export["headerAux.txt", {
-    "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
-    "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
-    "# ",
-    "# Table 3 data: Burkert profile results for 153 SPARC galaxies with Gaussian priors on YD and YB.",
-    "# First column: galaxy name.",
-    "# Second column: best-fit core radius (rc).",
-    "# Third column: best-fit of the logarithm of the central halo density (logRhoc).",
-    "# Fourth column: best-fit of the stellar disk mass-to-light ratio (YD).",
-    "# Fifth column: best-fit of the stellar bulge mass-to-light ratio (YB).",
-    "# Sixth column: Minimum chi-squared value (Chi2).",
-    "# Seventh column: the number of galaxy data points that were used for the fit (DataPoints).", 
-    "# ",
-    "# "
-  }];
-
-  dataBurkertFitsExport = globalDataRAR[[All, {1, colrc, collogRhoc, colYD, colYB, colChi2, colDataPoints}]];
-  PrependTo[dataBurkertFitsExport, {"Galaxy", "rc", "logRhoc", "YD", "YB", "Chi2", "DataPoints"}];
-  Export["BurkertFits-05-06-GaussianAux.tsv",dataBurkertFitsExport , Alignment-> Left, "TextDelimiters"-> None];
-
-  Run["cat headerAux.txt BurkertFits-05-06-GaussianAux.tsv > BurkertFits-05-06-Gaussian.tsv"]; (*It is only guaranteed to work in Unix systems. Sorry Windows...*)
-
-  DeleteFile["headerAux.txt"];
-  DeleteFile["BurkertFits-05-06-GaussianAux.tsv"]
-];
-
-exportBurkertIndividualResultsFixed:= Block[
-  {dataBurkertFitsExport},
-  If[isBurkertWithGaussianPriors == False, Null, Print["This requires isBurkertWithGaussianPriors==False. Try exportBurkertIndividualResultsGaussian."]; Abort[]];
-  Export["headerAux.txt", {
-    "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
-    "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
-    "# ",
-    "# Table 2 data: Burkert profile results for 153 SPARC galaxies with fixed YD=0.5 and YB=0.6.",
-    "# First column: galaxy name.",
-    "# Second column: best-fit core radius (rc).",
-    "# Third column: best-fit of the logarithm of the central halo density (logRhoc).",
-    "# Fourth column: Minimum chi-squared value (Chi2).",
-    "# Fifth column: the number of galaxy data points that were used for the fit (DataPoints).", 
-    "# ",
-    "# "
-  }];
-
-  dataBurkertFitsExport = globalDataRAR[[All, {1, colrc, collogRhoc, colChi2, colDataPoints}]];
-  PrependTo[dataBurkertFitsExport, {"Galaxy", "rc", "logRhoc", "Chi2", "DataPoints"}];
-  Export["BurkertFits-05-06-FixedAux.tsv",dataBurkertFitsExport , Alignment-> Left, "TextDelimiters"-> None];
-
-  Run["cat headerAux.txt BurkertFits-05-06-FixedAux.tsv > BurkertFits-05-06-Fixed.tsv"]; (*It is only guaranteed to work in Unix systems. Sorry Windows...*)
-
-  DeleteFile["headerAux.txt"];
-  DeleteFile["BurkertFits-05-06-FixedAux.tsv"]
-];
-
-
-SetDirectory @ Global`pathOutputDirectory
-If[isBurkertWithGaussianPriors,
-  exportBurkertIndividualResultsGaussian,
-  (*else*)
-  exportBurkertIndividualResultsFixed,
-  (*if neither True or False*)
-  Print["Variable NAVbaseCode`isBurkertWithGaussianPriors is neither True or False. Aborting."]; Abort[]
-];
-SetDirectory @ Global`pathBaseDirectory;
-
 
 (* ::Subsection::Closed:: *)
+
 (* NAV efficiency definition - Integration method *)
 
 
