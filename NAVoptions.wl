@@ -60,6 +60,20 @@ Needs["CustomTicks`"]
 
   plotMarkersOptions =  Graphics[{colorplot @ #, Circle[]}, ImageSize -> 12] & /@ Range[7];
 
+(* Histogram options *)
+  histoOptions =   Sequence @@ {
+    Frame -> True, 
+    Axes -> False, 
+    ChartStyle -> 
+  Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
+    FrameStyle -> Directive[GrayLevel[0.4], 16],
+    PlotRangeClipping -> True,
+    LabelStyle -> {FontFamily -> "Times", FontSize -> 15}, (*The font size is fixed.*)
+    FrameTicks -> {{LinTicks, 
+    StripTickLabels@LinTicks2}, {LinTicks, 
+    StripTickLabels@LinTicks2}}
+  };
+
 (* General options *)
   
   generalOptions = {

@@ -6,49 +6,179 @@
 
 (* ::Author:: *)
 (*Davi C. Rodrigues*)
-(*July 2021 - March 2022*)
-(*Version 1.1*)
+(*July 2021 - Nov 2022*)
+
 
 (* 
 Examples of variables names conventions (inspired on the Hungarian convention):
-  listDFunctionName :  a list of dimension D .
-  plotFunctionName : a plot .
+  listFunctionName : a list. If a number is present, like list2, denotes the dimension.
+  plotFunctionName : a plot.
   isFunctionName : a boolean variable, it is either True or False .
   distributionFunctionName : a DataDistribution .
   statusFunctionName : a function that prints miscelaneous data for status purposes.
 *)
 
+
+
 BeginPackage["NAVbaseCode`"];
 
-{globalData, headerGlobalData, YDcentral, YBcentral, clearOwnValues, addCol, squareSign, sqrtSign, medianUncertainty, equal0, colReff, 
-colh, colLD, colLB, colL, colD, colYD, colYB,  colMHI, colMgas, coldf2, colV, colQ, cola0, colLoga0B, colMD, 
-colMB, colMbar, colS1min, colS1plus,colS2min, colS2plus,  colS3min, colS3plus, colS5min, colS5plus, colHtype, colSeff, 
-colS0, coli, colHIr, colChi2, colChired, colDataPoints, col\[Delta], col\[Delta]i, col\[Delta]D, colrc, collogRhoc, GalaxiesOutsideRAR, 
-globalDataRAR, RotmodDir, Rotdata, colGRad, colGVobs, colG\[Delta]Vobs, colGVgas, colGVdisk, colGVbulge, colGSBdisk, colGSBbul,
-galaxy, galNumbers, distance, galdata, putcolG, gd, hRadlist, normalRadlist, normalVobslist, galdataExt, colGhRad, colGnRad,
-colGnVobs, colGVbar, colGVmiss, colGnVmiss, colGVmissLinear, colGnVmissLinear, colGVmiss2, colGVms2, colGnVmiss2, 
-colG\[Delta]Vms, colGAobs, colGAms, colGnAms galdataRAR, gdR, definedFunctions, silvermanBw, gdRBulgeless, galdataRARBulgeless, 
-Vbulge, exportBurkertIndividualResultsGaussian, exportBurkertIndividualResultsFixed, kpc, G0, ckpc};
+{
+  globalData, 
+  headerGlobalData, 
+  YDcentral, 
+  YBcentral, 
+  clearOwnValues, 
+  addCol, 
+  removeHeader, 
+  squareSign, 
+  sqrtSign, 
+  medianUncertainty, 
+  equal0, 
+  colReff, 
+  colh, 
+  colLD, 
+  colLB, 
+  colL, 
+  colD, 
+  colYD, 
+  colYB,  
+  colMHI, 
+  colMgas, 
+  coldf2, 
+  colV, 
+  colQ, 
+  cola0, 
+  colLoga0B, 
+  colMD, 
+  colMB, 
+  colMbar, 
+  colS1min, 
+  colS1plus,
+  colS2min, 
+  colS2plus,  
+  colS3min, 
+  colS3plus, 
+  colS5min, 
+  colS5plus, 
+  colHtype, 
+  colSeff,
+  colS0, 
+  coli, 
+  colHIr, 
+  colChi2, 
+  colChired, 
+  colDataPoints, 
+  col\[Delta], 
+  col\[Delta]i, 
+  col\[Delta]D, 
+  colrc, 
+  collogRhoc, 
+  GalaxiesOutsideRAR, 
+  globalDataRAR, 
+  RotmodDir, 
+  Rotdata, 
+  colGRad, 
+  colGVobs, 
+  colG\[Delta]Vobs, 
+  colGVgas, 
+  colGVdisk, 
+  colGVbulge, 
+  colGSBdisk, 
+  colGSBbul,
+  galaxy, 
+  galNumbers, 
+  distance, 
+  galdata, 
+  putcolG, 
+  gd, 
+  hRadlist, 
+  normalRadlist, 
+  normalVobslist, 
+  galdataExt, 
+  colGhRad, 
+  colGnRad, 
+  colGnVobs, 
+  colGVbar, 
+  colGVmiss, 
+  colGnVmiss, 
+  colGVmissLinear, 
+  colGnVmissLinear, 
+  colGVmiss2, 
+  colGVms2, 
+  colGnVmiss2, 
+  colG\[Delta]Vms, 
+  colGAobs, 
+  colGAms, 
+  colGnAms, 
+  galdataRAR, 
+  gdR, 
+  definedFunctions, 
+  silvermanBw, 
+  gdRBulgeless, 
+  galdataRARBulgeless, 
+  Vbulge, 
+  exportBurkertIndividualResultsGaussian, 
+  exportBurkertIndividualResultsFixed, 
+  kpc, 
+  G0, 
+  ckpc, 
+  efficiencyNAV, 
+  areaObs, 
+  positivePart, 
+  \[Delta]Vobs1\[Sigma]L, 
+  \[Delta]Vobs2\[Sigma]L, 
+  \[Delta]Vobs2\[Sigma]U, 
+  \[Delta]Vobs1\[Sigma]U, 
+  efficiencyNAVtotal, 
+  list1hn, 
+  list1hGasn, 
+  list1logSigma0, 
+  list1logSigmaGas0, 
+  list1frho, 
+  list1fh,
+  \[Rho]stars, 
+  \[Rho]gas, 
+  \[Rho]bar, 
+  distributionSilverman, 
+  areaSigma, 
+  regionIntersection, 
+  regionDifference, 
+  listExtractPoints, 
+  plotObsSigma,
+  nSigmaProbability, 
+  FindHDPDFValues, 
+  plotSigmaContours,
+  oneSigmaProbability, 
+  twoSigmaProbability,
+  list1InterpSigmaCurves,
+  plotBlueRAR
+};
 
-Begin["Private`"];
+Begin["`Private`"];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Loading data*)
 
 
-(*The following loads Burkert data. The only effect is to define TableResults.*)
-If[Global`isBurkertWithGaussianPriors == True,
+(*The following loads Burkert data. The only effect is to define TableResults. There are two options for loading the Burkert data, se below.*)
+
+(* isBurkertWithGaussianPriors = True; Loads the Burkert data with Gaussian priors (True), or the fixed case (False) *)
+
+Get["Burkert-GY-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"]
+
+(* If[isBurkertWithGaussianPriors == True,
   Get["Burkert-GY-05-06-MAGMAtableResults.m", Path -> "AuxiliaryData"] ,
   (*else*)
   Get["Burkert-Fixed-MAGMAtableResults.m", Path -> "AuxiliaryData"] ,
   (*Neither True or False*)
-  Print["The variable isBurkertWithGaussianPriors need to be set as True or False before starting BaseCode"];
+  Print["The variable isBurkertWithGaussianPriors need to be set as True or False"];
   Abort[]
-];
+]; *)
 
 globalData = Drop[TableResults,1];
 headerGlobalData = TableResults[[1]];
+Clear[TableResults];
 
 (* 
   General purpose constants, from PDG 2011.
@@ -61,12 +191,12 @@ G0 = 6.67428 10^-11 /(3.08568025 10^19)^3  1.98892 10^30;(* kpc^3 / (Msun \ s^2)
 ckpc = 299792.458 (* km/s *) / kpc; (* kpc / s *)
 
 
-(*Central values for YD and YB, these values should match the imported Burkert-GY file.*)
+(*Central values for YD and YB, these values should match the imported files *)
 YDcentral = 0.5; 
 YBcentral = 0.6;
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*General purpose definitions*)
 
 
@@ -86,8 +216,10 @@ medianUncertainty[x_, n_] := 1.858/Sqrt[n-1] MedianDeviation[x];
 SetAttributes[equal0, Listable];
 equal0[x_] := Equal[x,0];
 
+removeHeader[list_] := Select[list, \[Not]StringTake[ToString @ # , {2}] === "#" &]; (*If the header is identified with "#", this function removes it.*)
 
-(* ::Subsection:: *)
+
+(* ::Subsection::Closed:: *)
 (*Global data related definitions*)
 
 
@@ -110,16 +242,31 @@ MapThread[If[Position[headerGlobalData, #1] == {},Null,  #2 = Position[headerGlo
 
 badinc = Select[globalData,#[[coli]]<30 &][[All,1]];
 badQ = Select[globalData,#[[colQ]]==3 &][[All,1]];
-bad=Union[badinc,badQ];
+bad = Union[badinc,badQ];
 
 (*These are the galaxy numbers that do not belog to the RAR*)
 GalaxiesOutsideRAR = Flatten[(Position[globalData[[All,1]], #] & /@ bad),1];
 
 (*dataRAR is useful in general, but at the moment it is not not used in this code.*)
-globalDataRAR = Delete[globalData,GalaxiesOutsideRAR]; 
+globalDataRAR = Delete[globalData, GalaxiesOutsideRAR]; 
 
 
 (* ::Subsection:: *)
+(*Convenient definitions for exponential approximations data*)
+
+
+list1h = Normal @ Global`datasetExpVdiskNoBulge[All, "h"];
+list1hn = Normal @ Global`datasetExpVdiskNoBulge[All, "hn"];
+list1hGas = Normal @ Global`datasetExpVgasNoBulge[All, "hGas"];
+list1hGasn = Normal @ Global`datasetExpVgasNoBulge[All, "hGasn"];
+list1logSigma0 = Normal @ Global`datasetExpVdiskNoBulge[All, "logSigma0"];
+list1logSigmaGas0 = Normal @ Global`datasetExpVgasNoBulge[All, "logSigma0Gas"];
+
+list1frho = 10^list1logSigmaGas0 / (YDcentral 10^list1logSigma0); (* These are central densities, and the YDcentral correction is necessary since the exponential fits were done with Y = 1*)
+list1fh = list1hn / list1hGasn;
+
+
+(* ::Subsection::Closed:: *)
 (*Rotmod data (individual galaxy data)*)
 
 
@@ -142,7 +289,7 @@ colGSBbul = 8;
 
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Individual galaxy functions: all the data come from the Rotmod files*)
 
 
@@ -193,7 +340,7 @@ gd[listcols_]:=Table[gd[listcols, galn], {galn, 175}];
 
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Extended Individual galaxy functions: defines new functions and extend the table output*)
 
 
@@ -315,7 +462,11 @@ Clear[gdR];
 SetAttributes[gdR, HoldFirst];
 gdR::usage = 
   "gdR is a shortcut for calling specifc data from the function galdataRAR.\n" <>
-  "It is the equivalent of gd, but it only displays galaxies in the RAR sample (3168 data points)."; 
+  "It is the equivalent of gd, but it only displays galaxies in the RAR sample (3168 data points). \n" <>
+  "gdR[list] returns a table composed by the columns given by list and for all the galaxies.\n"<>
+	"gdR[list,i] returns a table composed by the columns given by list of the galaxy i. \n"<>
+	"gdR[list,i,j] is the equivalent of gd[list,i][[j]].\n"<>
+	"`list' can include any combination of the folowing strings that match columns: Rad, Vobs, \[Delta]Vobs, Vgas, Vdisk, Vbulge, SBdisk, SBbulge."; 
 gdR[listcols_, galn_] := gdR[listcols, galn] = If[listcols === All, galdataRAR[galn], galdataRAR[galn][[All, putcolG@listcols]]];
 gdR[listcols_, galn_, line_] := gdR[listcols, galn, line] = gdR[listcols, galn][[line]];
 gdR[listcols_] := gdR[listcols] = Table[gdR[listcols, galn], {galn, 175}];
@@ -372,90 +523,194 @@ gdRBulgeless[listcols_] := gdRBulgeless[listcols] = Table[gdRBulgeless[listcols,
 
 
 (* ::Subsection:: *)
-(*Silverman bandwidth definition*)
-(*I am not using the Mathetica's built in version, but they agree.*)
+(* Highest density probability (HDP) related definitions *)
 
+  nSigmaProbability[n_?NumberQ] := nSigmaProbability[n] = NProbability[Less[-n, x, n], Distributed[x, NormalDistribution[]]];
+  oneSigmaProbability = nSigmaProbability[1];
+  twoSigmaProbability = nSigmaProbability[2];  
+    
+  FindHDPDFValues::usage = "FindHDPDFValues[dist, probability] yields the lowest PDF value that delimits the Highest Density Probability region, if the variable probability is a number. If the variable probability is a list of numbers, the result is the same of acting FindHDPDFValues on each of the list values. FindHDPDFValues works for DataDistribution of any dimensions.";
 
-Clear[silvermanBw];
-silvermanBw::usage = 
-  "silvermanBw[data] finds the Silverman bandwidth for the provided data." <> 
-  "It works for arbitrary dimensions and uses the expression... See " <>
-  "https://mathematica.stackexchange.com/questions/255281/2d-kernel-density-estimation-smoothkerneldistribution-with-bandwidth-estimatio?noredirect=1#comment637566_255281 "<> 
-  "and https://mathematica.stackexchange.com/questions/25423/the-default-bandwidth-of-the-smoothkerneldistribution-function";
+  FindHDPDFValues[dist_DataDistribution, probability_?NumberQ] := Block[
+    {pdfList, pdfSortList, cdfSortList, positionAtCdf, positionsAtPdf},
+    pdfList = dist["PDFValues"];
+    pdfSortList = Reverse @ Sort @ pdfList;
+    cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList];
+    positionAtCdf[prob_] := FirstPosition[cdfSortList, p_ /; p >= prob];
+    positionsAtPdf = Flatten[positionAtCdf @  probability];
+    First @ pdfSortList[[positionsAtPdf]]
+  ];
 
-silvermanBw[dataX_?ListQ] := silvermanBw[dataX] = Block[
-  {std, interquartile, A, n, d, k},
-  d = If[Length@First @ dataX == 0, 1, Length@First @ dataX];
-  n = Length @ dataX;
-  std = StandardDeviation @ dataX;
-  interquartile = (Quantile[dataX, 0.75] - Quantile[dataX, 0.25]) / 1.34;
-  k = (9 * 3^(1/5))/(10 * 2^(2/5)) * (4/(d+2))^(1/(d+4));
-  If[d==1, std = {std}; interquartile = {interquartile}];
-  A= MapThread[ Min @ {#1,#2} & , {std, interquartile}];
-  If[d==1, A = First @ A];
-  k * n^(-1/(d+4)) A
-];
+  FindHDPDFValues[dist_DataDistribution, probability_List] := FindHDPDFValues[dist, #] & /@ probability;
+
+  plotSigmaContours[dataForContours_, limitingPdfValues_, {{xmin_, xmax_}, {ymin_, ymax_}}, options___]:= Block[
+    {pdf}, 
+    pdf[x_,y_] = PDF[distributionSilverman[dataForContours], {x, y}]; 
+    ContourPlot[
+      pdf[x, y],
+      {x, xmin, xmax},
+      {y, ymin, ymax},
+      Contours -> limitingPdfValues, (*Can be the output from FindHDPDFValues*)
+      ContourShading -> None, 
+      ContourStyle -> {
+        {Thickness[0.003], Lighter[Gray, 0.2]},
+        {Thickness @ 0.005, Gray}
+      },
+      options
+    ]
+  ];
+
 
 (* ::Subsection:: *)
-(*Difines functions to export Burkert results in tsv format*)
+(*Silverman bandwidth definition*)
+(*(this is independent from Mathetica's built in version, but they agree)*)
 
-exportBurkertIndividualResultsGaussian:= Block[
-  {dataBurkertFitsExport},
-  If[Global`isBurkertWithGaussianPriors == True, Null, Print["This requires isBurkertWithGaussianPriors==True. Try exportBurkertIndividualResultsFixed."]; Abort[]];
-  Export["headerAux.txt", {
-    "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
-    "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
-    "# ",
-    "# Table 3 data: Burkert profile results for 153 SPARC galaxies with Gaussian priors on YD and YB.",
-    "# First column: galaxy name.",
-    "# Second column: best-fit core radius (rc).",
-    "# Third column: best-fit of the logarithm of the central halo density (logRhoc).",
-    "# Fourth column: best-fit of the stellar disk mass-to-light ratio (YD).",
-    "# Fifth column: best-fit of the stellar bulge mass-to-light ratio (YB).",
-    "# Sixth column: Minimum chi-squared value (Chi2).",
-    "# Seventh column: the number of galaxy data points that were used for the fit (DataPoints).", 
-    "# ",
-    "# "
-  }];
+  Clear[silvermanBw];
+  silvermanBw::usage = 
+    "silvermanBw[data] finds the Silverman bandwidth for the provided data." <> 
+    "It works for arbitrary dimensions and uses the expression... See " <>
+    "https://mathematica.stackexchange.com/questions/255281/2d-kernel-density-estimation-smoothkerneldistribution-with-bandwidth-estimatio?noredirect=1#comment637566_255281 "<> 
+    "and https://mathematica.stackexchange.com/questions/25423/the-default-bandwidth-of-the-smoothkerneldistribution-function";
 
-  dataBurkertFitsExport = globalDataRAR[[All, {1, colrc, collogRhoc, colYD, colYB, colChi2, colDataPoints}]];
-  PrependTo[dataBurkertFitsExport, {"Galaxy", "rc", "logRhoc", "YD", "YB", "Chi2", "DataPoints"}];
-  Export["BurkertFits-05-06-GaussianAux.tsv",dataBurkertFitsExport , Alignment-> Left, "TextDelimiters"-> None];
+  silvermanBw[dataX_?ListQ] := silvermanBw[dataX] = Block[
+    {std, interquartile, A, n, d, k},
+    d = If[Length@First @ dataX == 0, 1, Length@First @ dataX];
+    n = Length @ dataX;
+    std = StandardDeviation @ dataX;
+    interquartile = (Quantile[dataX, 0.75] - Quantile[dataX, 0.25]) / 1.34;
+    k = (9 * 3^(1/5))/(10 * 2^(2/5)) * (4/(d+2))^(1/(d+4));
+    If[d==1, std = {std}; interquartile = {interquartile}];
+    A= MapThread[ Min @ {#1,#2} & , {std, interquartile}];
+    If[d==1, A = First @ A];
+    k * n^(-1/(d+4)) A
+  ];
 
-  Run["cat headerAux.txt BurkertFits-05-06-GaussianAux.tsv > BurkertFits-05-06-Gaussian.tsv"]; (*It is only guaranteed to work in Unix systems. Sorry Windows...*)
+  distributionSilverman[dataForKDE_, interpolationPoints_:300] := SmoothKernelDistribution[
+    dataForKDE, 
+    silvermanBw[dataForKDE], 
+    "Gaussian", 
+    MaxExtraBandwidths -> {{0,0}, {2,2}}, 
+    (* No extension for the horizontal axis: there cannot be data lower than 0 and higher than 1,
+    extension of 2 bandwidths in the vertical axis: relevant for a few models.*)
+    InterpolationPoints -> interpolationPoints
+  ]; (*Apart from MaxExtraBandwidths and InterpolationPoints, these are the standard options for SmoothKernelDistribution*)
 
-  DeleteFile["headerAux.txt"];
-  DeleteFile["BurkertFits-05-06-GaussianAux.tsv"]
+
+
+(* ::Subsection::Closed:: *)
+
+(* NAV efficiency definition - Integration method *)
+
+
+(* ::Text:: *)
+(*Version with integration: faster, but only works for NAV curves that are functinos.*)
+
+
+\[Delta]Vobs1\[Sigma]L[xn_] :=  list1InterpSigmaCurves[plotBlueRAR][[1]][xn]; (*L stands for lower limit*)
+\[Delta]Vobs1\[Sigma]U[xn_] :=  list1InterpSigmaCurves[plotBlueRAR][[2]][xn]; (*U stands for upper limit*)
+\[Delta]Vobs2\[Sigma]L[xn_] :=  list1InterpSigmaCurves[plotBlueRAR][[3]][xn];
+\[Delta]Vobs2\[Sigma]U[xn_] :=  list1InterpSigmaCurves[plotBlueRAR][[4]][xn];
+
+positivePart[x_] := HeavisideTheta[x] x;
+
+Clear[areaObs];
+areaObs[numberOfSigmas_] := Which[
+  numberOfSigmas == 1, NIntegrate[\[Delta]Vobs1\[Sigma]U[xn] - \[Delta]Vobs1\[Sigma]L[xn], {xn, 0.2, 0.9}],
+  numberOfSigmas == 2, NIntegrate[\[Delta]Vobs2\[Sigma]U[xn] - \[Delta]Vobs2\[Sigma]L[xn], {xn, 0.2, 0.9}],
+  True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
+];
+  
+efficiencyNAV[ModelSigmaL_, ModelSigmaU_, numberOfSigmas_Integer] := Block[ (*There is another efficiencyNAV function with different number of arguments.*)
+  {
+    areaIntersection,
+    areaModelOut,
+    xn, (*equivalent to rn, used to avoid definition clash*)
+    \[Delta]VobsL,
+    \[Delta]VobsU
+  },
+  
+  Which[
+    numberOfSigmas == 1, \[Delta]VobsL = \[Delta]Vobs1\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs1\[Sigma]U,
+    numberOfSigmas == 2, \[Delta]VobsL = \[Delta]Vobs2\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs2\[Sigma]U,
+    True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
+  ];
+  
+  areaIntersection = NIntegrate[
+    Min[\[Delta]VobsU[xn], ModelSigmaU[xn]] - Max[\[Delta]VobsL[xn], ModelSigmaL[xn]],
+    {xn, 0.2, 0.9}
+  ] / areaObs[numberOfSigmas];
+  
+  areaModelOut = NIntegrate[
+    positivePart[ModelSigmaU[xn] - \[Delta]VobsU[xn]] + positivePart[\[Delta]VobsL[xn] - ModelSigmaL[xn]],
+    {xn, 0.2, 0.9}
+  ]/ areaObs[numberOfSigmas];
+  
+  {areaIntersection - areaModelOut, areaIntersection, areaModelOut}
 ];
 
-exportBurkertIndividualResultsFixed:= Block[
-  {dataBurkertFitsExport},
-  If[Global`isBurkertWithGaussianPriors == False, Null, Print["This requires isBurkertWithGaussianPriors==False. Try exportBurkertIndividualResultsGaussian."]; Abort[]];
-  Export["headerAux.txt", {
-    "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
-    "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
-    "# ",
-    "# Table 2 data: Burkert profile results for 153 SPARC galaxies with fixed YD=0.5 and YB=0.6.",
-    "# First column: galaxy name.",
-    "# Second column: best-fit core radius (rc).",
-    "# Third column: best-fit of the logarithm of the central halo density (logRhoc).",
-    "# Fourth column: Minimum chi-squared value (Chi2).",
-    "# Fifth column: the number of galaxy data points that were used for the fit (DataPoints).", 
-    "# ",
-    "# "
-  }];
+Clear @ efficiencyNAVtotal; (*There is another efficiencyNAVtotal function with different number of arguments.*)
+efficiencyNAVtotal[ModelSigmaL1_, ModelSigmaU1_, ModelSigmaL2_, ModelSigmaU2_] := (
+  efficiencyNAV[ModelSigmaL1, ModelSigmaU1, 1] + 
+  efficiencyNAV[ModelSigmaL2, ModelSigmaU2, 2]
+) / 2;
 
-  dataBurkertFitsExport = globalDataRAR[[All, {1, colrc, collogRhoc, colChi2, colDataPoints}]];
-  PrependTo[dataBurkertFitsExport, {"Galaxy", "rc", "logRhoc", "Chi2", "DataPoints"}];
-  Export["BurkertFits-05-06-FixedAux.tsv",dataBurkertFitsExport , Alignment-> Left, "TextDelimiters"-> None];
+(* ::Subsection::Closed:: *)
+(* NAV efficiency definition - Region comparison method*)
 
-  Run["cat headerAux.txt BurkertFits-05-06-FixedAux.tsv > BurkertFits-05-06-Fixed.tsv"]; (*It is only guaranteed to work in Unix systems. Sorry Windows...*)
+(* ::Text:: *)
+(* This is a slower method, but it does not require that the nSigma region boundaries are functions. Typically relevant for models of type 2. The definitions here do not clash with the previous ones due to the different number of arguments.*)
 
-  DeleteFile["headerAux.txt"];
-  DeleteFile["BurkertFits-05-06-FixedAux.tsv"]
+listExtractPoints[plot_Graphics] := Cases[
+  Normal @ FullForm @ First @ plot,
+  Line[pts_] :> pts,
+  Infinity
 ];
 
+listForceTwoComponents[list_List] := (
+  If[Length @ list == 3,
+    Echo["function listForceTwoComponents is being used. This is not a problem, but a remark."];
+    If[Abs[aux[[1,1,2]] - aux[[2,1,2]]] >  Abs[aux[[3,1,2]] - aux[[2,1,2]]],
+      Return[{aux[[1]], Sort @ Join[aux[[2]], aux[[3]]]}],
+      Return[{Sort @ Join[aux[[1]], aux[[2]]], aux[[3]]}]
+    ]
+  ];
+  If[Length @ list > 3, Echo["listForceTwoComponents issue: Provied list has more than 3 components."]];
+  list
+);
 
+
+polygonPrepare[listToExtractPoints_List] := Block[
+  {pointsAux, transformation, listImproved},
+  listImproved = listForceTwoComponents @ listToExtractPoints;
+  If[Length[listImproved] == 2, Null, Echo["Data must either be a list with two components, one for each curve, or 3 components: in this case one of the componets is mergerd."]; Print[listToExtractPoints]; Abort[]];
+  If[
+    Round[listImproved[[1,1,1]], 1] == Round[listImproved[[2,1,1]], 1], (*Check if both parts of the data start either close to 1 or to 0.*)
+    transformation = Reverse, (*If both parts start together, one will need to be reversed*)
+    transformation = Identity
+  ];
+  pointsAux = Join[First @ listToExtractPoints, transformation @ Last @ listToExtractPoints ];
+  Cases[pointsAux, {x_,y_} /; 0.2 < x < 0.9]
+];
+
+Clear[areaSigma];
+areaSigma[plot_Graphics] := Area @ Polygon @ polygonPrepare @ listExtractPoints @ plot;
+
+areaSigma[points_List] := Area @ Polygon @ polygonPrepare @ points ;
+
+Clear[regionIntersection];
+regionIntersection[plotModelSigma_Graphics, nSigma_] := RegionIntersection[
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
+];
+
+Clear[regionDifference];
+regionDifference[plotModelSigma_Graphics, nSigma_] := RegionDifference[
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
+  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
+];
+
+efficiencyNAV[plotModelSigma_Graphics, nSigma_] := (Area @ regionIntersection[plotModelSigma, nSigma] - Area @ regionDifference[plotModelSigma, nSigma]) / areaSigma @ plotObsSigma[nSigma];
+efficiencyNAVtotal[plotModelSigma_Graphics] := Mean[{efficiencyNAV[plotModelSigma, 1], efficiencyNAV[plotModelSigma, 2]}];
 
 (* ::Subsection:: *)
 (*Prints all the introduced functions in this package*)

@@ -19,244 +19,404 @@
 
 
 
-isBurkertWithGaussianPriors = True; (*Loads the Burkert data with Gaussian priors (True), or the fixed case (False)*)
+saveAllPlots = False; (*Change this to True to save ALL the plots that are generated in THIS notebook. It does not include NAVobservational plots. Saves for specific models are in their respective sections.*)
+saveNAVobservationalPlots = False;
+saveNAVobservationalTables = False;
 
-SetDirectory @ NotebookDirectory[];
+pathBaseDirectory = NotebookDirectory[];
+pathOutputDirectory = FileNameJoin[{pathBaseDirectory, "Output"}];
+pathAuxDirectory = FileNameJoin[{pathBaseDirectory, "AuxiliaryData"}];
+
+SetDirectory @ pathBaseDirectory;
+
 Needs @ "NAVbaseCode`";
-<< "NAVoptions.wl";
+Get @ "NAVoptions.wl";
+Get @ "NAVobservational.wl";
+Get @ "NAVauxiliaryFunctions.wl";
+Get["MDC14aux.mx", Path -> pathAuxDirectory] // Quiet; (*If something goes wrong, this file will be generated*)
 
-SetDirectory @ FileNameJoin[{NotebookDirectory[], "Output"}];
+SetDirectory @ pathOutputDirectory;
 
-If[isBurkertWithGaussianPriors,
-  exportBurkertIndividualResultsGaussian,
-  (*else*)
-  exportBurkertIndividualResultsFixed,
-  (*if neither True or False*)
-  Exit[]
+savePreviousPlot[fileName_] := If[saveThisPlot || saveAllPlots, 
+  Echo @ Export[ToString @ fileName, %]; saveThisPlot = False
 ];
 
 
-Clear[distributionSilverman, plotBlueZero, statusKDE];
+saveThisPlot = False;
 
-distributionSilverman[dataForKDE_] := distributionSilverman[dataForKDE] = SmoothKernelDistribution[
-  dataForKDE, 
-  silvermanBw[dataForKDE], 
-  "Gaussian", 
-  MaxExtraBandwidths -> {{0,0}, {2,2}}, 
-  (* No extension for the horizontal axis: there cannot be data lower than 0 and higher than 1,
-   extension of 2 bandwidths in the vertical axis: relevant for a few models.*)
-  InterpolationPoints -> 200
-]; (*Apart from MaxExtraBandwidths and InterpolationPoints, these are the standard options for SmoothKernelDistribution*)
-  
-
-plotBlueZero[dataForKDE_, opts:OptionsPattern[]] := nListPlot[
-  {dataForKDE}, 
-  PlotMarkers -> {
-    Graphics[{Darker[Blue],Opacity[0.05],Disk[]}, ImageSize -> 10], 
-    Graphics[{Darker[Red],Opacity[0.3],Disk[]}, ImageSize -> 10]
-  },
-  opts,
-  PlotRange -> {{0,1}, All},
-  AspectRatio -> 1
+dataDeltaVobs = Block[{rawData},
+  rawData = Re[{Log10[#1] , Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}],1]];
+  Select[rawData, #[[1]] > 0 &]
 ];
 
-statusKDE[dataForKDE_, {{xmin_, xmax_}, {ymin_, ymax_}}]:= Block[{},
-  Echo[silvermanBw[dataForKDE], 
-    "Gaussian bandwidths from Silverman rule of thumb: "
-  ];
-  Print@GraphicsRow[
+Clear[b, loga, model, logR, loga0];
+model0 = logR + loga0;
+loga0 = loga0 /. First@FindFit[dataDeltaVobs,  model0 ,  {loga0} , logR]
+
+Clear[loga];
+model = b logR + loga;
+{b , loga} = {b, loga} /. FindFit[dataDeltaVobs,  model , {b , loga} , logR]
+
+Show[
+  plotBlueZero[
+    {Log10[#1], Log10[#2]} & @@@ Flatten[gdR[{Rad, Vmiss2}], 1], 
+    PlotRange-> {{-0.0,2.1}, {1.5,5.5}}
+  ],
+  Plot[
     {
-      plotBlueZero[dataForKDE], 
-      ContourPlot[PDF[distributionSilverman[dataForKDE], {x, y}], {x, xmin, xmax}, {y, ymin, ymax}]
-    }
+      model
+    }, 
+    {logR, -1, 3}, 
+    PlotStyle->{{Black, Thick, Dashed}, {Black, Thick}, {Black, DotDashed}},
+    PlotRange->All
   ]
-];
-
-
-(* SPECIFIC DEFINITIONS *)
-
-Clear[gdRList, gdRListFlat];
-
-gdRList[gdFunction_] := gdRList[gdFunction] = gdFunction[{nRad, \[Delta]Vms}][[#]] & /@ Range[175];
-gdRListFlat[gdFunction_] := Flatten[gdRList[gdFunction], 1];
-
-list2RARRot = gdRListFlat @ gdR;
-list2RARRotNoBulge = gdRListFlat @ gdRBulgeless; 
-
-
-(*EXECUTION*)
-
-distRARRot = distributionSilverman[list2RARRot];
-distRARRotNoBulge = distributionSilverman[list2RARRotNoBulge];
-
-Echo["All RAR galaxies case:"];
-statusKDE[list2RARRot, {{0, 1}, {-0.5, 1.5}}];
-Echo["Only the bulgeless RAR galaxies:"];
-statusKDE[list2RARRotNoBulge, {{-0.01,1}, {-0.5, 1.5}}];
-
-
-
-Clear[plotBlue, plotSigmaContours, plotBlueFunction];
-(*list1LimitingPDFValues::usage = 
-  "limitingPDFValues[data, {{xmin, xmax, xstep}, {ymin, ymax, ystep}}] provides {pdf1Sigma, pdf2sigma}}, \n " <>
-  "where pdf1Sigma and pdf2Sigma are respectively the pdf values that limit the 1 or 2 Sigma highest denstiy region found from the KDE of the provided data. \n"<>
-  "xmin, xmax, ymin and ymax set the region to be considered, while xstep and ystep the step size to be used to explore the distribution.";
-*)  
-
-oneSigmaProbability = NProbability[Less[-1, x, 1], Distributed[x, NormalDistribution[]]];
-twoSigmaProbability = NProbability[Less[-2, x, 2], Distributed[x, NormalDistribution[]]];  
-  
-FindHDPDFValues::usage = "FindHDPDFValues[dist, probabilityList] yeilds a list of the PDF values that dermines the highest density probability regions, these PDF values correspond to the provided list of probabilities (probabilityList). FindHDPDFValues works for DataDistribution of any dimensions. It uses the discrete PDF table provided by dist[\"PDFValues\"], if higher resolution is desirable, increase the numbers of InterpolationPoints when generating the distribution (for instance, in SmoothKernelDistribution).";
-FindHDPDFValues[dist_DataDistribution, probability_List] := Block[
-  {pdfList, pdfSortList, cdfSortList, positionAtCdf, positionsAtPdf},
-  pdfList = dist["PDFValues"];
-  pdfSortList = Reverse @ Sort @ pdfList;
-  cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList];
-  positionAtCdf[prob_] := FirstPosition[cdfSortList, p_ /; p >= prob];
-  positionsAtPdf = Flatten[positionAtCdf /@  probability];
-  pdfSortList[[positionsAtPdf]]
-];
-
-plotSigmaContours[dataForContours_, limitingPdfValues_, {{xmin_, xmax_}, {ymin_, ymax_}}, options___]:= Block[
-  {pdf}, 
-  pdf[x_,y_] = PDF[distributionSilverman[dataForContours], {x, y}]; 
-  ContourPlot[
-    pdf[x, y],
-    {x, xmin, xmax},
-    {y, ymin, ymax},
-    Contours -> limitingPdfValues, (*Can be the output from FindHDPDFValues*)
-    ContourShading -> None, 
-    ContourStyle -> {
-      {Thickness[0.003], Lighter[Gray, 0.2]},
-      {Thickness @ 0.005, Gray}
-    },
-    options
-  ]
-];
-
-plotBlue[dataForBluePlot_, limitingPdfValeus_, {{xmin_, xmax_}, {ymin_, ymax_}}, options___] := Show[
-  plotBlueZero[dataForBluePlot, options],
-  plotSigmaContours[dataForBluePlot, limitingPdfValeus, {{xmin, xmax}, {ymin, ymax}}, PlotRange -> All]
-];
-
-(* SPECIFIC DEFINITIONS *)
-
-ymin = -1.5;
-ymax = 2.5;
-xmin= 0;
-xmax = 1;
-xstep = 0.005;
-ystep = 0.005;
-
-oneAndTwoSigma = {oneSigmaProbability, twoSigmaProbability};
-list1Limits = FindHDPDFValues[distRARRot, oneAndTwoSigma];
-list1LimitsNoBulge = FindHDPDFValues[distRARRotNoBulge, oneAndTwoSigma];
-
-plotBlueFunction = plotBlue[Sequence@@#, {{xmin, xmax - 0.001}, {-0.5, 1.5}}, PlotRange -> {{0, 1}, {-1, 2}}] & ;
-
-(* EXECUTION *)
-
-{plotBlueRAR, plotBlueRARNoBulge} = plotBlueFunction /@ {{list2RARRot, list1Limits}, {list2RARRotNoBulge, list1LimitsNoBulge}};
-
-GraphicsRow[
-  {plotBlueRAR, plotBlueRARNoBulge},
-  0,
-  ImageSize -> 800
 ]
 
-Export["plotBlueRAR.pdf", plotBlueRAR];
-Export["plotBlueRARNoBulge.pdf", plotBlueRARNoBulge];
+savePreviousPlot["plotDeltaV2analysis.pdf"];
 
 
-Clear[list1InterpSigmaCurves, plotSigmaRegions];
-list1InterpSigmaCurves::usage = "list1InterpSigmaCurves[blueplot] provides a list of 4 interpolated curves in the following order:"<> 
-    "{1\[Sigma]LowerLimit, 1\[Sigma]UpperLimit, 2\[Sigma]LowerLimit, 2\[Sigma]UpperLimit}. /n"<>
-    "The plot to be provided (blueplot) can be generated by the function plotBlue.";
-list1InterpSigmaCurves[plotblue_] := Block[
+saveThisPlot = False;
+
+Clear[ac];
+list2restrictedRARRot = Select[list2RARRot, 0.2 <  #[[1]] < 0.9 &] ;
+{ac} ={ac} /. FindFit[list2restrictedRARRot,  r^ac , ac , r]
+
+Clear[a, b, c, d, e, f, g, h];
+
+list = Table[{r, list1InterpCurvesRAR[[4]][r]}, {r,0.2, 0.9, 0.05}];
+{c, d} = {c , d}/. FindFit[list, {2 r^c -  r^d},  {c, d}, r]
+
+list = Table[{r, list1InterpCurvesRAR[[3]][r]}, {r,0.2, 0.9, 0.05}];
+{b} = {b}/. FindFit[list, r^b,  {b}, r]
+
+list = Table[{r, list1InterpCurvesRAR[[2]][r]}, {r,0.2, 0.9, 0.05}];
+{e, f} = {e, f}/. FindFit[list, {2 r^e -  r^f},  {e, f}, r]
+
+list = Table[{r, list1InterpCurvesRAR[[1]][r]}, {r,0.2, 0.9, 0.05}];
+{g} = {g}/. FindFit[list, r^g ,  {g}, r]
+
+plotPowerLawModel = Show[
   {
-    sigmaContoursList,
-    curveSigma, 
-    curveOrder, 
-    curve2SigmaNeg, 
-    curve1SigmaNeg, 
-    curve1SigmaPlus, 
-    curve2SigmaPlus
-  },
-  sigmaContoursList = Cases[
-    Normal @ FullForm @ First @ plotblue,
-    Line[pts_] :> pts,
-    Infinity
-  ];
-  curveSigma[n_] := Interpolation[
-    Sort@sigmaContoursList[[n]],
-    Method -> "Spline", 
-    InterpolationOrder-> 2
-  ];
-  curveOrder = Ordering @ Table[curveSigma[n][0.5], {n, 1, 4}];
-  curve2SigmaNeg = curveSigma[curveOrder[[1]]];
-  curve1SigmaNeg = curveSigma[curveOrder[[2]]];
-  curve1SigmaPlus = curveSigma[curveOrder[[3]]];
-  curve2SigmaPlus = curveSigma[curveOrder[[4]]];
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        2 rn^c - rn^d, 
+        2 rn^e -  rn^f,  
+        rn^b, 
+        rn^g
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Red, 0.2], Thickness @ 0.003},
+        {Lighter[Red, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Red, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Red, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ],
+    Plot[rn^ac, {rn,0,1}, PlotStyle -> {Black, Dashed}]
+  }
+]
+
+savePreviousPlot["plotPowerLawModel.pdf"];
+
+
+efficiencyNAV[#^g &, 2 #^e - #^f &, 1]
+efficiencyNAV[#^b &, 2 #^c - #^d &, 2]
+efficiencyNAVtotal[#^g &, 2 #^e - #^f &, #^b &, 2 #^c - #^d &]
+
+
+\[Delta]Varctan[rn_, rtn_] = ArcTan[rn/rtn]^2/ArcTan[1/rtn]^2;
+
+\[Delta]VarctanLimit1[rn_] = Limit[\[Delta]Varctan[rn, rtn], rtn -> \[Infinity]];
+\[Delta]VarctanLimit2[rn_] = Limit[\[Delta]Varctan[rn, rtn], rtn -> 0];
+  
+
+plotArctanGrayRed = Show[
   {
-    curve1SigmaNeg,
-    curve1SigmaPlus,
-    curve2SigmaNeg, 
-    curve2SigmaPlus
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        \[Delta]VarctanLimit1[rn], 
+        \[Delta]VarctanLimit2[rn]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
   }
 ];
 
-plotSigmaRegions::usage = 
-  "plotSigmaRegions[curvesSigma, xLimit1, xLimit2] yields a plot with the 1 and 2 sigma regions from xLimit1 to xLmit2. \n" <>
-  "The standard values of xLimit1 and xLimit2 are 0.2 and 0.9. \n" <>
-  "The input to be provided, curvesSigma, can be generated by list1InterpSigmaCurves.";
-  
-plotSigmaRegions[curvesSigma_, xLimit1_:0.01, xLimit2_:0.99] := Plot[
-  {
-    curvesSigma[[3]][r],
-    curvesSigma[[1]][r],
-    curvesSigma[[2]][r],
-    curvesSigma[[4]][r]
-  },
-  {r, xLimit1, xLimit2},
-  Filling -> {{1 -> {3}, GrayLevel[0.7]}, {2 -> {4}}},
-  PlotStyle -> {{Thickness[0.002], Gray}, {Thickness @ 0.002, Gray}},
-  FillingStyle -> {GrayLevel[0.7], Opacity @ 0.05}
+Echo["plotArctanGrayRed:"];
+Print@plotArctanGrayRed;
+
+
+
+
+saveThisPlot = False;
+
+(* DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rtn_?NumberQ, n\[Sigma]_] := NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]Varctan[rn,rtn])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
 ];
 
-(*EXECUTION*)
+chi2Lower[rtn_?NumberQ, n\[Sigma]_] := NIntegrate[
+  (lowerBound[n\[Sigma]][rn] - \[Delta]Varctan[rn,rtn])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing"-> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
 
-{plotSigmaRegionsRAR, plotSigmaRegionsRARNoBulge} = plotSigmaRegions[list1InterpSigmaCurves[#]] & /@ {plotBlueRAR, plotBlueRARNoBulge};
 
-GraphicsRow[
-  {plotSigmaRegionsRAR, plotSigmaRegionsRARNoBulge},
-  ImageSize -> 800
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+rtnUpper[2] = rtn /. NMinimize[{chi2Upper[rtn,2],rtn>0.001},{rtn,0,10}][[2]];
+rtnUpper[1] = rtn /. NMinimize[{chi2Upper[rtn,1],rtn>0.001},{rtn,0,10}][[2]];
+rtnLower[2] = rtn /. NMinimize[{chi2Lower[rtn,2],rtn>0.001},{rtn,0,10}][[2]];
+rtnLower[1] = rtn /. NMinimize[{chi2Lower[rtn,1],rtn>0.001},{rtn,0,10}][[2]];
+
+Echo[{rtnUpper[1], rtnLower[1]}, "rtn 1\[Sigma] bounds: "];
+Echo[{rtnUpper[2], rtnLower[2]}, "rtn 2\[Sigma] bounds: "];
+
+plotArctanGlobalBestFit = Show[
+  {
+    plotArctanGrayRed,
+    Plot[
+      {
+        \[Delta]Varctan[rn, rtnUpper @ 2],
+        \[Delta]Varctan[rn, rtnUpper @ 1],
+        \[Delta]Varctan[rn, rtnLower @ 2],
+        \[Delta]Varctan[rn, rtnLower @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotArctanGlobalBestFit:"];
+Print@plotArctanGlobalBestFit;
+
+savePreviousPlot["plotArctanGlobalBestFit.pdf"];
+
+
+efficiencyNAV[\[Delta]Varctan[#, rtnLower@ 1] &, \[Delta]Varctan[#, rtnUpper@ 1] &, 1]
+efficiencyNAV[\[Delta]Varctan[#, rtnLower@ 2] &, \[Delta]Varctan[#, rtnUpper@ 2] &, 2]
+efficiencyNAVtotal[\[Delta]Varctan[#, rtnLower@ 1] &, \[Delta]Varctan[#, rtnUpper@ 1] &, \[Delta]Varctan[#, rtnLower@ 2] &, \[Delta]Varctan[#, rtnUpper@ 2] &]
+
+
+saveThisPlot = False;
+
+resultsArctan = Get["../AuxiliaryData/arctan-GY-1-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
+headerArctan = First @ resultsArctan;
+resultsArctanData = Drop[resultsArctan, 1];
+colRt = First @ Flatten @ Position[headerArctan, "Rt"];
+listRtn = resultsArctanData[[All, colRt]] / (rmax153 /@ Range @ 153);
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rtnUpper @ 1, 0}, {Log10@rtnLower @ 1, 100}]
+};
+
+Histogram[
+  Log10 @ listRtn, 
+  {0.2}, 
+  PlotRange -> All,
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
 ]
 
+savePreviousPlot["histogramArctan.pdf"];
 
-Clear[exportSigmaList]
-exportSigmaList::usage = "curvesSigmaList[listOfCurves, rnMin, rnMax, step] generates 1\[Sigma] and 2\[Sigma] limiting curves in a close-to-paper-ready formated table, /n"<>
-  "with rMin < r < rMax, in steps provided by step (optional, 0.02 being standard). The listOfCurves can be generated by list1InterpSigmaCurves./n"<>
-  "exportSigmaList does not exports any file, but prepares the list to be exported.";
 
-exportSigmaList[list1IpSigmaCurves_, rnMin_, rnMax_, step_:0.025] := Block[
-  {header, tab, rn, nF, tabAux},
-  header = {"# rn", "1\[Sigma]Lower", "1\[Sigma]Upper", "2\[Sigma]Lower", "2\[Sigma]Upper"};
-  nF := NumberForm[#, {4, 3}] &;
-  tabAux = Table[list1IpSigmaCurves[[n]]@rn, {n, 4}];
-  tab = Table[
-    nF /@ Flatten[{rn, tabAux}],
-    {rn, rnMin, rnMax, step} 
-  ];
-  Join[{header}, tab]
+colChi2Arctan = First @ Flatten @ Position[headerArctan, "Chi2"];
+colVChi2Arctan = First @ Flatten @ Position[headerArctan, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listArctanChi2 = resultsArctanData[[All, colChi2Arctan]];
+listArctanVChi2 = resultsArctanData[[All, colVChi2Arctan]];
+Echo[{Median @ listArctanChi2, Median @ listArctanVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listArctanChi2, Total @listArctanVChi2}, "Total {Chi2, Chi2Eff}: "];
+
+
+\[Delta]VarctanHalf[rn_, rtn_] = ArcTan[rn/rtn]/ArcTan[1/rtn];
+
+\[Delta]VarctanHalfLimit1[rn_] = Limit[\[Delta]VarctanHalf[rn, rtn], rtn -> \[Infinity]];
+\[Delta]VarctanHalfLimit2[rn_] = Simplify[Limit[\[Delta]VarctanHalf[rn, rtn], rtn -> 0], rn > 0];
+  
+
+plotArctanHalfGrayRed = Show[
+  {
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        \[Delta]VarctanHalfLimit1[rn], 
+        \[Delta]VarctanHalfLimit2[rn]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
+  }
 ];
 
-list1InterpCurvesRAR = list1InterpSigmaCurves[plotBlueRAR];
-list1InterpCurvesRARNoBulge = list1InterpSigmaCurves[plotBlueRARNoBulge];
+Echo["plotArctanHalfGrayRed:"];
+Print@plotArctanHalfGrayRed;
 
- 
-Export["sigmaRegionsRAR.csv", exportSigmaList[list1InterpCurvesRAR, 0.025, 1]];
-Export["sigmaRegionsRARNoBulge.csv", exportSigmaList[list1InterpCurvesRARNoBulge, 0.025, 1]];
 
+
+
+saveThisPlot = False;
+
+(* DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rtn_?NumberQ, n\[Sigma]_] := NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]VarctanHalf[rn,rtn])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+chi2Lower[rtn_?NumberQ, n\[Sigma]_] := NIntegrate[
+  (lowerBound[n\[Sigma]][rn] - \[Delta]VarctanHalf[rn,rtn])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing"-> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+rtnUpper[2] = rtn /. NMinimize[{chi2Upper[rtn,2],rtn>0.001},{rtn,0,10}][[2]];
+rtnUpper[1] = rtn /. NMinimize[{chi2Upper[rtn,1],rtn>0.001},{rtn,0,10}][[2]];
+rtnLower[2] = rtn /. NMinimize[{chi2Lower[rtn,2],rtn>0.001},{rtn,0,10}][[2]];
+rtnLower[1] = rtn /. NMinimize[{chi2Lower[rtn,1],rtn>0.001},{rtn,0,10}][[2]];
+
+Echo[{rtnUpper[1], rtnLower[1]}, "rtn 1\[Sigma] bounds: "];
+Echo[{rtnUpper[2], rtnLower[2]}, "rtn 2\[Sigma] bounds: "];
+
+plotArctanHalfGlobalBestFit = Show[
+  {
+    plotArctanHalfGrayRed,
+    Plot[
+      {
+        \[Delta]VarctanHalf[rn, rtnUpper @ 2],
+        \[Delta]VarctanHalf[rn, rtnUpper @ 1],
+        \[Delta]VarctanHalf[rn, rtnLower @ 2],
+        \[Delta]VarctanHalf[rn, rtnLower @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotArctanHalfGlobalBestFit:"];
+Print@plotArctanHalfGlobalBestFit;
+
+savePreviousPlot["plotArctanHalfGlobalBestFit.pdf"];
+
+
+Off[NIntegrate::izero];
+efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 1] &, \[Delta]VarctanHalf[#, rtnUpper@ 1] &, 1]
+efficiencyNAV[\[Delta]VarctanHalf[#, rtnLower@ 2] &, \[Delta]VarctanHalf[#, rtnUpper@ 2] &, 2]
+Mean[{%, %%}]
+On[NIntegrate::izero];
+
+
+saveThisPlot = False;
+
+resultsArctanHalf = Get["../AuxiliaryData/arctanHalf-GY-1-MAGMAtableResults.m"]; (*These results only inlcude the 153 RAR galaxies*)
+headerArctanHalf = First @ resultsArctanHalf;
+resultsArctanHalfData = Drop[resultsArctanHalf, 1];
+colRt = First @ Flatten @ Position[headerArctanHalf, "Rt"];
+listRtnHalf = resultsArctanHalfData[[All, colRt]] / (rmax153 /@ Range @ 153);
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rtnUpper @ 1, 0}, {Log10@rtnLower @ 1, 100}]
+};
+
+Histogram[
+  Log10 @ listRtnHalf, 
+  {0.2}, 
+  PlotRange -> All,
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
+]
+
+savePreviousPlot["histogramArctanHalf.pdf"];
+
+
+colChi2ArctanHalf = First @ Flatten @ Position[headerArctanHalf, "Chi2"];
+colVChi2ArctanHalf = First @ Flatten @ Position[headerArctanHalf, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listArctanHalfChi2 = resultsArctanHalfData[[All, colChi2ArctanHalf]];
+listArctanHalfVChi2 = resultsArctanHalfData[[All, colVChi2ArctanHalf]];
+Echo[{Median @ listArctanHalfChi2, Median @ listArctanHalfVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listArctanHalfChi2, Total @listArctanHalfVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
 \[Rho]brkt[rn_, rcn_, \[Rho]0_] = \[Rho]0/((1+rn/rcn)(1+rn^2/rcn^2));
@@ -269,31 +429,14 @@ VVbrkt[rn_, rcn_, \[Rho]0_, Rmax_] = (G / Rmax) * Mbrkt[rn, rcn, \[Rho]0] / rn;
   Assumptions -> {0 < rn < 1, 0 < rcn < 1, 0 < Rmax}
 ];
 
-plotBackground[upperLimit_] := nPlot[
-  100,
-  {rn, 0, 1},
-  PlotRange -> {{0, 1}, {-0.25, upperLimit}},
-  AspectRatio -> (1 / 1.3),
-  GridLines -> None, 
-  Prolog -> {
-    Dotted,
-    Line @ {{0, 0}, {1, 0}},
-    Gray,
-    Opacity[0.2], 
-    Rectangle[{0.001, -0.5},{0.2, upperLimit}],
-    Rectangle[{0.9, -0.5},{0.999, upperLimit}]
-  }
-];
-
-
 plotBurkertGrayRed = Show[
   {
     plotBackground[1.5],
     plotSigmaRegionsRAR,
     Plot[
       {
-        \[Delta]Vbrkt[rn, 1000], 
-        \[Delta]Vbrkt[rn, 0.001]
+        rn^2, (*These are the limiting curves for Burkert.*)
+        1/rn
       },
       {rn, 0, 1},
       PlotRange -> All,
@@ -306,7 +449,7 @@ Echo["plotBurkertGrayRed:"];
 Print@plotBurkertGrayRed;
 
 
-
+saveThisPlot = False;
 
 Clear[chi2Upper, chi2Lower];
 chi2Upper[rcn_?NumberQ, n\[Sigma]_]:= (*chi2Upper[rcn, n\[Sigma]] =*) NIntegrate[
@@ -332,8 +475,8 @@ chi2Lower[rcn_?NumberQ, n\[Sigma]_]:= chi2Lower[rcn, n\[Sigma]] = NIntegrate[
 
 (* SPECIFIC DEFINITIONS *)
 
-rnStart = 0.01;
-rnEnd=0.99;
+rnStart = 0.2;
+rnEnd=0.9;
 
 lowerBound[1] = list1InterpCurvesRAR[[1]];
 upperBound[1] = list1InterpCurvesRAR[[2]];
@@ -378,827 +521,622 @@ plotBurkertGlobalBestFit = Show[
 ];
 
 Echo["plotBurkertGlobalBestFit:"];
-Print@plotBurkertGlobalBestFit;
+Print @ plotBurkertGlobalBestFit;
 
-Export["plotBurkertGlobalBestFit.pdf", plotBurkertGlobalBestFit];
-
-
-(*rcn values outside the upper and lower limits are not considered*)
-(*The upper limit is important to eliminate those cases that are essentially infinity,
-these also pose technical difficulties for the kernel density estimation.
-The lower limit may be important since we have droppend all data with rn < 0.2,
-There are galaxies that use the DM profile to do a quick rise of the rotation curve.*)
-
-Clear[statusHistogram, nSigmas, rcnLowerLimit, rcnUpperLimit];
-
-statusHistogram[nSigmas_, rcnLowerLimit_, rcnUpperLimit_]:= Block[{},
-  Rmax[i_] := Last @ gd[Rad, i];
-  rc[i_] := globalData[[i, colrc]] ;
-  posExcluded = Position[Table[galdataRAR @ n, {n, 1, 175}], {}];
-  RmaxXrcAll = Table[{Rmax @ i, rc @ i}, {i, 1, 175}];
-  RmaxXrc = Delete[RmaxXrcAll, posExcluded];
-  rcnDataAll =  (Divide @@@ RmaxXrcAll)^-1;
-  rcnData =  (Divide @@@ RmaxXrc)^-1;
-  histoOptions =   Sequence @@ {
-    Frame -> True, 
-    Axes -> False, 
-    ChartStyle -> Directive[EdgeForm[GrayLevel[0.4]], GrayLevel @ 0.8],
-    FrameStyle -> Directive[GrayLevel[0.4], 16],
-    PlotRangeClipping -> True,
-    FrameTicks -> {{LinTicks, StripTickLabels@LinTicks2}, {LinTicks, StripTickLabels@LinTicks2}}
-  };
-  
-  rcnDataWithoutOutliers = Select[rcnData, rcnLowerLimit < # < rcnUpperLimit &]; 
-  dist = SmoothKernelDistribution[
-    rcnDataWithoutOutliers, 
-    silvermanBw[rcnDataWithoutOutliers], 
-    MaxExtraBandwidths -> 0,
-    InterpolationPoints -> 10^4
-  ];
-
-  pdfValuesForContours = Block[
-    {
-      positionAtCdf, oneSigmaProbability, twoSigmaProbability, positionsAtPdf, pdfList,
-      pdfSortList, cdfSortList
-    },
-    oneSigmaProbability = NProbability[Less[-1, x, 1], Distributed[x, NormalDistribution[]]];
-    twoSigmaProbability = NProbability[Less[-2, x, 2], Distributed[x, NormalDistribution[]]];
-    pdfList = Table[
-      PDF[dist,x],
-      {x, 0, 3, 0.01}
-    ];
-    pdfSortList = Reverse @ Sort @ Flatten @ pdfList;
-    cdfSortList = Accumulate[pdfSortList] / Total[pdfSortList] ;
-    positionAtCdf[probability_] := FirstPosition[cdfSortList, p_ /; GreaterEqual[p, probability]];
-    positionsAtPdf = Flatten @ Map[positionAtCdf, {oneSigmaProbability, twoSigmaProbability}];
-    pdfSortList[[positionsAtPdf]]
-  ];
-
-  sigmaContoursPlot = ContourPlot[
-    PDF[dist,x],
-    {x, 0, 3},
-    {y,0, 2},
-    Contours -> pdfValuesForContours, 
-    PlotRange -> {{0., 3}, All}
-  ];
-
-  sigmaContoursList = Cases[
-    Normal @ FullForm @ First @ sigmaContoursPlot,
-    Line[pts_] :> pts,
-    Infinity
-  ];
-
-  maxPDF = x /. Last @ Maximize[PDF[dist, x], x];
-
-  rcnRootsSigma[i_] := Quiet[
-    FindRoot[
-      PDF[dist,x]==pdfValuesForContours[[i]], #
-    ] & /@ {{x,0,maxPDF}, {x,maxPDF,3}},
-    FindRoot::brmp
-  ];
-
-  {rcnLow @ 1, rcnHigh @ 1} = x /. rcnRootsSigma[1];
-  {rcnLow @ 2, rcnHigh @ 2} = x /. Quiet[rcnRootsSigma[2], FindRoot::brmp];
-
-  lines = {
-    Dashed, 
-    Thickness @ 0.004, 
-    Line @ {{rcnUpper @ nSigmas, 0}, {rcnUpper @ nSigmas, 100}},
-    Line @ {{rcnLower @ nSigmas, 0}, {rcnLower @ nSigmas, 100}}
-  };
-
-  lines2= {
-    Red,
-    DotDashed, 
-    Thickness @ 0.004, 
-    Line @ {{rcnLow @ nSigmas, 0}, {rcnLow @ nSigmas, 100}},
-    Line @ {{rcnHigh @ nSigmas, 0}, {rcnHigh @ nSigmas, 100}}
-  };
-
-  rcnDistributionHistogram := Histogram[
-    rcnDataWithoutOutliers,
-    {0.1}, 
-    "PDF", 
-    PlotRange -> {{0, 3}, All},
-    Frame -> True, 
-    Axes -> False, 
-    Epilog -> {lines, lines2}, 
-    histoOptions
-  ];
-
-  Echo[ToString@nSigmas <>"\[Sigma] limits from individual fits:" <> ToString@{rcnLow@nSigmas, rcnHigh@nSigmas}];
-  Echo[ToString@nSigmas <>"\[Sigma] limits from NAV method:" <> ToString@{rcnUpper@nSigmas, rcnLower@nSigmas}];
-  Echo["Lower and upper rcn limits used for the individual Burkert fits: " <> ToString[{rcnLowerLimit, rcnUpperLimit}]];
-  Echo["rcnDistributionHistogram for "<> ToString@nSigmas <>"\[Sigma]:"];
-  Print@Show[{rcnDistributionHistogram, nPlot[PDF[dist,x], {x,0,3}, PlotRange -> All]}]
-];
-
-statusHistogram[1, 0, 100];
-
-statusHistogram[2,0,100];
+savePreviousPlot["plotBurkertGlobalBestFit.pdf"];
 
 
-Clear[vExp, fitExpVdisk, fitExpVdiskPlot, chi2, associationFitExpVdisk];
-
-(*vExp comes from Binney & Tremaine 2nd Ed., eq.(2.165)*)
-vExp[R_,logSigma0_,h_]= Block[{y}, 
-  y = R/(2 h);
-  kpc Sqrt[4 \[Pi] G0 10^logSigma0 h y^2 (BesselI[0,y] BesselK[0,y] - BesselI[1,y] BesselK[1,y])]
-];
-
-chi2[model_List, dataObs_List, uncertainty_List] := chi2[model, dataObs, uncertainty]  = Total[(model-dataObs)^2/uncertainty^2];
-
-associationFitExpVdisk::usage="associationFitExpVdisk[data(R x Vdisk)] fits the radial vs disk velocity curve data as a rotation curve for an exponential disk and returns an association with several data. "<>
-  "For fitting, it is assumed an uncertainty of 10% on the velocity. The important point is not the porportionality constant, but that the uncertainty is proportional to the velocity. "<>
-  "If data = {},  associationFitExpVdisk returns {}.";
-
-associationFitExpVdisk[dataRVdisk_List] := fitExpVdisk[dataRVdisk] = Block[
-  {sol, R, h, bestLogSigma0, besth, logSigma0, listModel, uncertainty, rMax, solExtended},
-  If[
-    dataRVdisk=={}, 
-    Return[{}]
-  ];
-  rMax = Last @ dataRVdisk[[All, 1]];
-  listModel = vExp[# , logSigma0, h] & /@ dataRVdisk[[All,1]];
-  uncertainty = Max[{0.10 dataRVdisk[[#, 2]], 2}] & /@ Range@Length@dataRVdisk; (*Assumes uncertainty of 10% or 2 km/s. *)
-  sol = NMinimize[
-    {chi2[listModel, dataRVdisk[[All, 2]], uncertainty], h > 0, logSigma0 > 1},
-    {{logSigma0, 6, 10}, {h, 0.5, 10}},
-    Method-> Automatic
-  ];
-  (*{logSigma0, h, Chi2, Number of data points }*)
-  solExtended = {First@sol, First@sol/(Length[dataRVdisk] - 2), logSigma0, h, h/rMax, rMax, Length[dataRVdisk]} /. Last@sol;
-  AssociationThread[{"Chi2", "Chi2red", "logSigma0", "h", "hn", "rMax", "dataPoints"}, solExtended]
-];
-
-plotFittedExpVdisk[dataRVdisk_List, bestVdiskValues_List]:= Block[
-  {vMax, bestLogSigma0, besth, rMax},
-  If[
-    dataRVdisk=={}, 
-    Return[{}]
-  ];
-  {bestLogSigma0, besth} = bestVdiskValues;
-  vMax = Max @ dataRVdisk[[All, 2]];
-  rMax = Last @ dataRVdisk[[All, 1]];
-  Show[
-    {
-      ListPlot[
-        dataRVdisk,
-        PlotRange -> {{0, 1.1 * rMax}, {0, 1.1 * vMax}}
-      ],
-      Plot[vExp[R, bestLogSigma0, besth], {R, 0, 100}, PlotRange -> All]
-    }
-  ]
-];
+efficiencyNAV[\[Delta]Vbrkt[#, rcnLower@ 1] &, \[Delta]Vbrkt[#, rcnUpper@ 1] &, 1]
+efficiencyNAV[\[Delta]Vbrkt[#, rcnLower@ 2] &, \[Delta]Vbrkt[#, rcnUpper@ 2] &, 2]
+Mean[{%, %%}]
 
 
-Echo["Computing datasetExpVdiskNoBulge. This takes some seconds."];
-datasetExpVdiskNoBulge = Dataset[
-  DeleteCases[ 
-    associationFitExpVdisk[gdRBulgeless[{Rad, Vdisk}, #]] & /@ Range[175], 
-  {}]
-] // EchoTiming
+saveThisPlot = False;
 
-
-Export["headerAux.txt", {
-  "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
-  "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
-  "# ",
-  "# The complete Table B1 data: the best fit results of an exponential model for the stellar component of 122 SPARC galaxies.",
-  "# First column: best-fit disk scale length (h).",
-  "# Second column: best-fit central surface brightness (logSigma0).",
-  "# Third column: normalized disk scale length (hn).",
-  "# Fourth column: the minimum chi-squared value (Chi2).",
-  "# Fifth column: the number of galaxy data points that were used for the fit (dataPoints).", 
-  "# ",
-  "# "
-}];
-
-datasetStarsExport = datasetExpVdiskNoBulge[All,{"h","logSigma0", "hn","Chi2", "dataPoints"}];
-Export["StellarExponentialBestFitAux.tsv", datasetStarsExport, Alignment-> Left, "TextDelimiters"->None];
-
-Run["cat headerAux.txt StellarExponentialBestFitAux.tsv > StellarExponentialBestFit.tsv"]; (*It is only guaranteed to work in Unix systems. Sorry Windows...*)
-
-DeleteFile["headerAux.txt"];
-DeleteFile["StellarExponentialBestFitAux.tsv"];
-
-
-listhn= Normal @ datasetExpVdiskNoBulge[All, "hn"];
-
-dist = SmoothKernelDistribution[
-  listhn,
-  silvermanBw @ listhn,
-  MaxExtraBandwidths -> 0,
-  InterpolationPoints -> 10^4 (*This is a large number, it has no relevant impact on speed *)
-];
-
-listHDPDFlimits = FindHDPDFValues[dist, oneAndTwoSigma];
-
-list2PointsXPDF = {dist["InterpolationPoints"], dist["PDFValues"]}\[Transpose];
-positionMaxPDF = First @ Last @ SortBy[list2PointsXPDF, Last];
-
-rootsSigma[i_] := (FindRoot[
-  PDF[dist, x] == listHDPDFlimits[[i]], 
-  #, 
-  MaxIterations -> 1000
-] & /@ {{x, 0, positionMaxPDF}, {x, positionMaxPDF, 1}}) ~ Quiet ~ FindRoot::brmp;
-
-{hnLow[1], hnHigh @ 1} = x /. rootsSigma[1];
-{hnLow[2], hnHigh @ 2} = x /. rootsSigma[2];
-
-Clear @ lines;
-lines[nSigmas_] := {
-  Dashed,
-  Thickness[0.004 / nSigmas],
-  Line @ {{hnLow @ nSigmas, 0}, {hnLow @ nSigmas, 100}},
-  Line @ {{hnHigh @ nSigmas, 0}, {hnHigh @ nSigmas, 100}}
+resultsBurkert = Get["../AuxiliaryData/Burkert-GY-05-06-MAGMAtableResults.m"]; (*These results include all 175 galaxies*)
+headerBurkert = First @ resultsBurkert;
+resultsBurkertData = Drop[resultsBurkert, 1];
+colRc = First @ Flatten @ Position[headerBurkert, "rc"];
+listRcn = DeleteCases[resultsBurkertData[[All, colRc]] / (rmax /@ Range @ 175), _/Last[{}]] // Quiet;
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rcnUpper @ 1, 0}, {Log10@rcnLower @ 1, 100}]
 };
 
-Echo[{hnLow @ 1, hnHigh @ 1} ,"1\[Sigma] limits:"];
-Echo[{hnLow @ 2, hnHigh @ 2} ,"2\[Sigma] limits:"];
+Histogram[
+  Log10 @ listRcn, 
+  {0.2}, 
+  PlotRange -> {All, All}, (*There are a few galaxies beyond 1*)
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
+]
 
-Show[
+savePreviousPlot["histogramBurkert.pdf"];
+
+
+colChi2Burkert = First @ Flatten @ Position[headerBurkert, "Chi2"];
+colVChi2Burkert = First @ Flatten @ Position[headerBurkert, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listBurkertChi2 = resultsBurkertData[[All, colChi2Burkert]];
+listBurkertVChi2 = resultsBurkertData[[All, colVChi2Burkert]];
+Echo[{Median @ listBurkertChi2, Median @ listBurkertVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listBurkertChi2, Total @listBurkertVChi2}, "Total {Chi2, Chi2Eff}: "];
+
+
+\[Rho]nfw[rn_, rsn_, \[Rho]s_] = \[Rho]s/(rn/rsn (1+rn/rsn)^2);
+Mnfw[rn_, rsn_, \[Rho]s_] = 4 \[Pi] Rmax^3  Integrate[\[Rho]nfw[rnprime, rsn, \[Rho]s] rnprime^2, {rnprime, 0, rn}, Assumptions-> {rn>0, rsn>0}];
+
+VVnfw[rn_, rsn_, \[Rho]s_, Rmax_] = (G / Rmax) * Mnfw[rn, rsn, \[Rho]s] / rn;
+
+\[Delta]Vnfw[rn_, rsn_] = FullSimplify[
+  VVnfw[rn, rsn, \[Rho]s, Rmax] / VVnfw[1, rsn, \[Rho]s, Rmax],
+  Assumptions -> {0 < rn < 1, 0 < Rmax}
+];
+
+\[Delta]VnfwLargeRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> \[Infinity]]
+\[Delta]VnfwSmallRsn[rn_] = Limit[\[Delta]Vnfw[rn, rsn], rsn -> 0]
+plotNFWGrayRed = Show[
   {
-    Histogram[listhn,
-      {silvermanBw @ listhn},
-      "PDF", histoOptions, Epilog -> {lines @ 1, lines @ 2},
+    plotBackground[1.5],
+    plotSigmaRegionsRAR,
+    Plot[
+      {
+        \[Delta]VnfwLargeRsn[rn], 
+        \[Delta]VnfwSmallRsn[rn]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Thickness[0.005], Black, Dashed}}
+    ]
+  }
+];
+
+Echo["plotNFWGrayRed:"];
+Print@plotNFWGrayRed;
+
+
+saveThisPlot = False;
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rsn_?NumberQ, n\[Sigma]_]:= (*chi2Upper[rcn, n\[Sigma]] =*) NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]Vnfw[rn,rsn])^2, 
+  {rn,rnStart,rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+chi2Lower[rsn_?NumberQ, n\[Sigma]_]:= chi2Lower[rsn, n\[Sigma]] = NIntegrate[
+  (lowerBound[n\[Sigma]][rn]- \[Delta]Vnfw[rn,rsn])^2, 
+  {rn,rnStart,rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing"-> 0},
+  WorkingPrecision->10, 
+  PrecisionGoal->3, 
+  AccuracyGoal->Infinity, 
+  MaxRecursion->10
+];
+
+
+(* SPECIFIC DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+Clear[rsnUpper, rsnLower];
+
+rsnUpper[2] = rsn /. NMinimize[{chi2Upper[rsn,2], rsn > 0}, {rsn, 0, 1}][[2]];
+rsnUpper[1] = rsn /. NMinimize[{chi2Upper[rsn,1], rsn > 0}, {rsn, 0, 1}][[2]];
+rsnLower[2] = rsn /. NMinimize[{chi2Lower[rsn,2], rsn > 0}, {rsn, 10, 10000}][[2]];
+rsnLower[1] = rsn /. NMinimize[{chi2Lower[rsn,1], rsn > 0}, {rsn, 10, 10000}][[2]];
+
+Echo[{rsnUpper[1], rsnLower[1]}, "rsn 1\[Sigma] bounds: "];
+Echo[{rsnUpper[2], rsnLower[2]}, "rsn 2\[Sigma] bounds: "];
+
+plotNFWGlobalBestFit = Show[
+  {
+    plotNFWGrayRed,
+    Plot[
+      {
+        \[Delta]Vnfw[rn, rsnUpper @ 2],
+        \[Delta]Vnfw[rn, rsnUpper @ 1],
+        \[Delta]Vnfw[rn, rsnLower @ 2],
+        \[Delta]Vnfw[rn, rsnLower @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
       PlotRange -> All
-    ],
-    nPlot[PDF[dist, x], {x, 0, 10}]
-  }
-]
-
-
-Clear[associationFitExpVgas];
-associationFitExpVgas[dataRVgas_List] := associationFitExpVgas[dataRVgas] = Block[
-  {sol, R, h, bestLogSigma0, besth, logSigma0, listModel, uncertainty, rMax, solExtended},
-  If[
-    dataRVgas=={}, 
-    Return[{}]
-  ];
-  rMax = Last @ dataRVgas[[All, 1]];
-  listModel = vExp[# , logSigma0, h] & /@ dataRVgas[[All,1]];
-  uncertainty = Max[{0.10 dataRVgas[[#, 2]], 2}] & /@ Range@Length@dataRVgas; (*Max[10%, 2 km/s] uncertainty, inspired on distance error together with a minimum one.*)
-  sol = NMinimize[
-    {chi2[listModel, dataRVgas[[All, 2]], uncertainty], 100 rMax > h > 0.1, logSigma0 > 0.5},
-    {{logSigma0, 3, 10}, {h, 3, 30}},
-    Method-> Automatic
-  ];
-  (*{logSigma0, h, Chi2, Number of data points }*)
-  solExtended = {First@sol, First@sol/(Length[dataRVgas] - 2), logSigma0, h, h/rMax, rMax, Length[dataRVgas]} /. Last@sol;
-  AssociationThread[{"Chi2", "Chi2red", "logSigma0Gas", "hGas", "hGasn", "rMax", "dataPoints"}, solExtended]
-];
-
-
-Echo["Computing datasetExpVgasNoBulge. This takes some seconds."];
-datasetExpVgasNoBulge = Dataset[
-  DeleteCases[ 
-    associationFitExpVgas[gdRBulgeless[{Rad, Vgas}, #]] & /@ Range[175], 
-  {}]
-] // EchoTiming
-
-
-Export["headerGasAux.txt", {
-  "# Additional velocity distribution: a fast sample analysis for dark matter or modified gravity models",
-  "# by A. Hernandez-Arboleda, D. C. Rodrigues, A. Wojnar",
-  "# ",
-  "# This file: Best fit results of an exponential model for the gaseous component of 122 SPARC galaxies.",
-  "# First column: best-fit disk scale length (hGas).",
-  "# Second column: best-fit central surface brightness (logSigma0Gas).",
-  "# Third column: normalized disk scale length (hGasn).",
-  "# Fourth column: the minimum chi-squared value (Chi2).",
-  "# Fifth column: the number of galaxy data points that were used for the fit (dataPoints).", 
-  "# ",
-  "# "
-}];
-
-datasetGasExport = datasetExpVgasNoBulge[All,{"hGas","logSigma0Gas", "hGasn","Chi2", "dataPoints"}];
-Export["GasExponentialBestFitAux.tsv", datasetGasExport, Alignment-> Left, "TextDelimiters"->None];
-
-Run["cat headerGasAux.txt GasExponentialBestFitAux.tsv > GasExponentialBestFit.tsv"]; (*It is only guaranteed to work in Unix systems. Sorry Windows...*)
-
-DeleteFile["headerGasAux.txt"];
-DeleteFile["GasExponentialBestFitAux.tsv"];
-
-
-list1hn = Normal@datasetExpVdiskNoBulge[All, "hn"];
-list1hGasn = Normal@datasetExpVgasNoBulge[All, "hGasn"];
-list1logSigma0 = Normal@datasetExpVdiskNoBulge[All, "logSigma0"];
-list1logSigmaGas0 = Normal@datasetExpVgasNoBulge[All, "logSigma0Gas"];
-
-list1frho = list1logSigmaGas0/ (0.5 list1logSigma0) (*The 0.5 comes from the mass to light ratio*);
-list1fh = list1hn/ list1hGasn;
-
-
-\[Delta]vP2[rn_, hn_] = rn Exp[(1-rn) / hn];
-
-plot100 := nPlot[
-  100,
-  {rn, 0, 1},
-  PlotRange -> {{0, 1}, {-0.25, 1.5}},
-  AspectRatio -> (1 / 1.3),
-  GridLines -> None, 
-  ImageSize -> 500, 
-  FrameStyle -> 18, 
-  Epilog -> 
-  {
-    Line[{{0.2, -0.5}, {0.2, 2}}],
-    Line @ {{0.9, -0.5}, {0.9, 2}},
-    Dotted,
-    Line @ {{0, 0}, {1, 0}}
+    ]
   }
 ];
 
-plotPalatiniStars := Plot[
-  {\[Delta]vP2[rn, 0.3], \[Delta]vP2[rn, 0.5], \[Delta]vP2[rn, 10]},
-  {rn, 0, 1},
-  PlotRange -> All,
-  PlotStyle -> 
-  {
-    {Thickness[0.005], DotDashed, Darker[Red, 0.3]},
-    {Thickness[0.005], Dashed, Darker[Red, 0.3]},
-    {Thickness[0.005], Darker[Red, 0.3]}
-  },
-  PlotLegends->Placed[
-    {
-      Style["\!\(\*SubscriptBox[\(h\), \(n\)]\) = 0.3",17, FontFamily->Times], 
-      Style["\!\(\*SubscriptBox[\(h\), \(n\)]\) = 0.5",17, FontFamily->Times], 
-      Style["\!\(\*SubscriptBox[\(h\), \(n\)]\) = 10",17, FontFamily->Times]
-    },
-    {{0.76,0.26},{0.5,0.5}}
-  ]
-];
+Echo["plotNFWGlobalBestFit:"];
+plotNFWGlobalBestFit
 
-Show[{plot100, plotSigmaRegionsRARNoBulge, plotPalatiniStars}, 
-  FrameLabel->{Style["\!\(\*SubscriptBox[
-StyleBox[\"r\",\nFontSlant->\"Italic\"], \(n\)]\)", 20, FontFamily->Times], Style["\[Delta]\!\(\*SuperscriptBox[
-StyleBox[\"v\",\nFontSlant->\"Italic\"], \(2\)]\)", 20, FontFamily->Times]}
+savePreviousPlot["plotNFWGlobalBestFit.pdf"];
+
+
+efficiencyNAV[\[Delta]Vnfw[#, rsnLower@ 1] &, \[Delta]Vnfw[#, rsnUpper@ 1] &, 1]
+efficiencyNAV[\[Delta]Vnfw[#, rsnLower@ 2] &, \[Delta]Vnfw[#, rsnUpper@ 2] &, 2]
+Mean[{%, %%}]
+
+
+saveThisPlot = False;
+
+resultsNFW = Get["../AuxiliaryData/NFW-GY-05-06-v2-MAGMAtableResults.m"]; (*These results include all 175 galaxies*)
+headerNFW = First @ resultsNFW;
+resultsNFWData = Drop[resultsNFW, 1];
+colRs = First @ Flatten @ Position[headerNFW, "rS"];
+resultsNFWDataRAR = Delete[resultsNFWData,  GalaxiesOutsideRAR];
+listRsnRAR = resultsNFWDataRAR[[All, colRs]] / (rmax153 /@ Range @ 153);
+rectangle = {
+  EdgeForm[{Lighter[Blue, 0.5], Thickness @ 0.003}],
+  Lighter[Blue, 0.5],
+  Opacity @ 0.2,
+  Rectangle[{Log10@rsnUpper @ 1, 0}, {Log10@rsnLower @ 1, 100}]
+};
+
+Histogram[
+  Log10 @ listRsnRAR, 
+  {0.2}, 
+  PlotRange -> {All, All}, 
+  Frame -> True, 
+  Axes -> False, 
+  Epilog -> {rectangle},
+  histoOptions
 ]
 
-
-\[Delta]vP2g[rn_, hn_, fh_, frho_]= (rn ( E^(-(rn/hn))+  frho  fh E^(- fh rn/hn)))/( E^(-(1/hn))+  frho fh  E^(- fh /hn));
-\[Delta]vPalatini[rn_, gal_] := \[Delta]vP2g[rn, list1hn[[gal]], list1fh[[gal]], list1frho[[gal]]];
-Show[plotBackground[2.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], {rn, 0, 1}, 
-PlotRange -> All, 
-PlotStyle-> Directive[Opacity[0.1],Blue, Thick]]
-]
+savePreviousPlot["histogramNFW.pdf"];
 
 
-
-Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]vPalatini[rn, gal]}, {rn, RandomReal[1,200]}];
-list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 122, {}], 1];
-
-distPalatini = distributionSilverman @ list2\[Delta]VVmodelAll;
-list1LimitsSigmaPalatini = FindHDPDFValues[distPalatini, oneAndTwoSigma];
-(*plotBluePalatini = plotBlue[list2\[Delta]VVmodelAll, list1LimitsSigmaPalatini, {{xmin, xmax - 0.01}, {-0.5, 2.5}}, PlotRange -> {{0, 0.99}, {-0.5, 2.5}}] *)
-
-plotPalatiniCurves = Plot[Evaluate[\[Delta]vPalatini[rn, #] & /@ Range@122], {rn, 0, 1}, PlotRange -> All, PlotStyle-> Directive[Opacity[0.1],Blue, Thick]];
-
-plotPalatiniContours = ContourPlot[
-  {
-    PDF[distPalatini, {x,y}] == list1LimitsSigmaPalatini[[1]], 
-    PDF[distPalatini, {x,y}] == list1LimitsSigmaPalatini[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 4.0},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}];
-
-Show[
-  plotBackground[4.0],
-  plotSigmaRegionsRARNoBulge,
-  plotPalatiniCurves,
-  plotPalatiniContours
-]
-
-Export["plotdeltaVPalatini.pdf", %];
+colChi2NFW = First @ Flatten @ Position[headerNFW, "Chi2"];
+colVChi2NFW = First @ Flatten @ Position[headerNFW, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listNFWChi2 = resultsNFWData[[All, colChi2NFW]];
+listNFWVChi2 = resultsNFWData[[All, colVChi2NFW]];
+Echo[{Median @ listNFWChi2, Median @ listNFWVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listNFWChi2, Total @listNFWVChi2}, "Total {Chi2, Chi2Eff}: "];
 
 
-Clear[a0, aNewtList, aNewt, \[CapitalDelta]VVmodel, rmax, interpolVbar, interpolVbarSquared, VVmodel, \[Delta]VVmodel];
+saveThisPlot = False;
 
-rmax[gal_] := Last[gdR[Rad, gal]];
+Clear[a0, \[CapitalDelta]VVmodel, VVmodel, \[Delta]VVmodel];
 
-aNewtList[gal_]:=Block[{vvbar, aux},
-  vvbar = squareSign[gdR[Vbar, gal]];
-  (*vvbar = Total[{ squareSign[#1], 0.5 squareSign[#2], 0.6 squareSign[#3] }] & @@@ gdR[{Vgas, Vdisk, Vbulge},gal];*)
-  aux = {gdR[Rad,gal], vvbar/(kpc gdR[Rad,gal])}\[Transpose];
-  Prepend[aux, {0,0}]
-];
+saveThisPlot = False; (*Change this to True to save it*)
 
-aNewt[R_, gal_] := aNewt[R, gal] = Interpolation[aNewtList[gal], Method->"Spline", InterpolationOrder->2][R];
+v2MondRaw[R_, gal_] := R kpc aBar[R, gal]/(1 - E^-Sqrt[RealAbs[aBar[R, gal]]/a0]);
 
-VVmodel[R_, gal_] := R kpc aNewt[R, gal]/(1 - E^-Sqrt[RealAbs[aNewt[R, gal]]/a0]);
+\[CapitalDelta]v2MondRaw[R_, gal_] := v2MondRaw[R, gal] - aBar[R, gal] R kpc ;
 
-\[CapitalDelta]VVmodel[R_, gal_] := VVmodel[R, gal] - aNewt[R, gal] R kpc ;
-
-\[Delta]VVmodel[rn_, gal_] := If[gdR[Rad, gal]=={}, 
+\[Delta]v2MondRaw[rn_, gal_] := If[gdR["Rad", gal]=={}, 
   {}, 
-  \[CapitalDelta]VVmodel[rn rmax[gal], gal] / \[CapitalDelta]VVmodel[rmax[gal], gal]
+  \[CapitalDelta]v2MondRaw[rn rmax[gal], gal] / \[CapitalDelta]v2MondRaw[rmax[gal], gal]
 ];
 
-
-a0 = 1;
+Echo[a0 = 1, "a0 = "];
 Show[
   plotBackground[1.5],
   plotSigmaRegionsRAR,
   Plot[
-    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1}, 
+    Evaluate[\[Delta]v2MondRaw[rn, #]& /@ Range@175], {rn,0,1}, 
     PlotStyle-> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
   ]
 ]
 
-Export["plotdeltaVmonda01.pdf", %];
+savePreviousPlot["plotdeltaVmonda01.pdf"];
 
 
-a0 = 10^-15;
+saveThisPlot = False;
+
+Echo[a0 = 1. 10^-15, "a0 = "];
 Show[
   plotBackground[1.5],
   plotSigmaRegionsRAR,
   Plot[
-    Evaluate[\[Delta]VVmodel[rn, #]& /@ Range@175], {rn,0,1},  
+    Evaluate[\[Delta]v2MondRaw[rn, #]& /@ Range@175], {rn,0,1},  
     PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
   ]
 ]
 
-Export["plotdeltaVmonda015.pdf", %];
+savePreviousPlot["plotdeltaVmonda015.pdf"];
 
+
+saveThisPlot = False;
 
 a0 = 1.2 10^-13;
-Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := If[
-  gdR[Rad, gal] == {},
+Clear @ list2\[Delta]v2MondRaw;
+list2\[Delta]v2MondRaw[gal_] := If[
+  gdR["Rad", gal] == {},
   {},
-  Table[{rn, \[Delta]VVmodel[rn, gal]}, {rn, RandomReal[1,70]}]
+  Table[{rn, \[Delta]v2MondRaw[rn, gal]}, {rn, RandomReal[1,70]}]
 ];
-list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ 175, {}], 1];
+list2\[Delta]v2MondRawAll = Flatten[DeleteCases[list2\[Delta]v2MondRaw /@ Range @ 175, {}], 1];
 
+distMondRaw = distributionSilverman @ list2\[Delta]v2MondRawAll;
 
-list1LimitsSigmaMondRaw = FindHDPDFValues[distributionSilverman @ list2\[Delta]VVmodelAll, oneAndTwoSigma];
-plotBlueMondRaw = plotBlue[
-  list2\[Delta]VVmodelAll, 
-  list1LimitsSigmaMondRaw, 
-  {{xmin, xmax - 0.01}, {-0.5, 1.5}}, 
-  PlotRange -> {{0, 0.99}, {-0.5, 1.5}}
-] 
+pdfValuenSigmaMondRaw[n_?NumberQ] := FindHDPDFValues[distMondRaw, nSigmaProbability[n]];
 
-
-distMondRaw =distributionSilverman @ list2\[Delta]VVmodelAll;
-
-plotMondCurves = Plot[
-  Evaluate[\[Delta]VVmodel[rn, #] & /@ Range@175], {rn, 0, 1}, 
-  PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
-];
-
-plotMondContours = ContourPlot[
-  {
-    PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[1]], 
-    PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 1.5},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
+plotMondRawSigma[n_] := plotMondRawSigma[n] = Block[{pdfValue, contourStyle},
+  pdfValue = pdfValuenSigmaMondRaw[n];
+  Which[
+    n == 1, contourStyle = Directive[Purple, Dashed, Thick], 
+    n == 2, contourStyle = Directive[Lighter @ Purple, Dashed],
+    True, Automatic
+  ];
+  ContourPlot[
+    PDF[distMondRaw, {x,y}] == pdfValue, 
+    {x, 0, 1}, {y, -1, 5},
+    PerformanceGoal -> "Quality", 
+    ContourStyle -> contourStyle
+  ]
 ];
 
+plotMondRawCurves = Plot[
+  Evaluate[\[Delta]v2MondRaw[rn, #] & /@ Range@122], 
+  {rn, 0, 1}, 
+  PlotRange -> All, 
+  PlotStyle -> Directive[Opacity[0.1],
+  Blue, 
+  Thick]
+];
+
+plotMondRawContours = Show[
+  {plotMondRawSigma[1], 
+  plotMondRawSigma[2]}
+];
+  
 Show[
   plotBackground[1.5],
   plotSigmaRegionsRAR,
-  plotMondCurves,
-  plotMondContours
+  plotMondRawCurves,
+  plotMondRawContours,
+  Plot[{rn, 1}, {rn, 0, 1}, PlotStyle -> {{Thickness[0.003], Orange}}]
 ]
 
-Export["plotdeltaVmondPrincipal.pdf", %];
+savePreviousPlot["plotdeltaVmondPrincipal.pdf"];
 
 
-Clear[a0, rn, datasetDisk, datasetGas, auxTab, list1\[Delta]VVMondExp, list2\[Delta]VVMondExpAux, VVbarExp, aNewtExp, VVMondExp, \[Delta]VVMondExp, numberGalaxies, nG, \[CapitalDelta]VVMondExp, rMax, dataGal];
+DistributeDefinitions["NAVbaseCode`"];
+DistributeDefinitions["NAVbaseCode`Private`"];
 
-datasetDisk = datasetExpVdiskNoBulge;
-datasetGas = datasetExpVgasNoBulge;
+EchoTiming[
+{rI[1], rD[1], rI[2], rD[2]} = Parallelize[{
+  regionIntersection[plotMondRawSigma[1],1], 
+  regionDifference[plotMondRawSigma[1],1],
+  regionIntersection[plotMondRawSigma[2],2],
+  regionDifference[plotMondRawSigma[2],2]
+  }]
+];
 
-numberGalaxies = Length @ datasetDisk;
-nG = numberGalaxies; (*122 galaxies without Bulge*)
+efficiencyNAV[1]
+efficiencyNAV[2]
+efficiencyNAVtotal[]
 
-VVbarExp[R_, logSigma0_, h_, logSigmaGas0_, hgas_] := 0.5 vExp[R, logSigma0, h]^2 + vExp[R, logSigmaGas0, hgas]^2;
 
-dataGal[gal_] := dataGal[gal] = {
-  datasetDisk[gal, "logSigma0"], 
-  datasetDisk[gal, "h"], 
-  datasetGas[gal, "logSigma0Gas"], 
-  datasetGas[gal, "hGas"]
-};
+saveThisPlot = False;
 
-rMax[gal_] := rMax[gal] = datasetDisk[gal, "rMax"];
+resultsMond = Get["../AuxiliaryData/MONDRAR-Fxa0-GY-05-06-MAGMAtableResults.m"]; (*These results include 153 galaxies*)
+headerMond = First @ resultsMond;
+resultsMondData = Drop[resultsMond, 1];
+colYDMond = First @ Flatten @ Position[headerMond, "YD"];
+listYDMond = resultsMondData[[All, colYDMond]] ;
 
-VVbarExp[R_, gal_Integer] := VVbarExp[R, Sequence @@ dataGal[gal]];
+Histogram[
+  Log10@listYDMond, 
+  {0.05}, 
+  PlotRange -> {All, All}, 
+  Frame -> True, 
+  Axes -> False
+]
 
-aNewtExp[R_, gal_] :=  VVbarExp[R, gal]/ (R kpc);
+savePreviousPlot["histogramMond.pdf"];
 
-VVMondExp[R_, gal_] :=  R kpc aNewtExp[R, gal]/(1 - E^-Sqrt[aNewtExp[R, gal] / a0]);
 
-\[CapitalDelta]VVMondExp[R_, gal_] := VVMondExp[R, gal] - VVbarExp[R, gal];
+Median[Log10@listYDMond]
+Mean[Log10@listYDMond]
+StandardDeviation[Log10@listYDMond]
 
-\[Delta]VVMondExpAux[rn_, gal_Integer] := \[CapitalDelta]VVMondExp[rn rMax[gal], gal] / \[CapitalDelta]VVMondExp[rMax[gal], gal];
 
-(*To speed up the plots, it is relevant to define \[Delta]VVMondExp from a list of interpolated functions (list1\[Delta]VVMondExp)*)
-list1\[Delta]VVMondExp[rni_] = Block[
-  {list2\[Delta]VVMondExpAux},
-  list2\[Delta]VVMondExpAux[gali_] := Prepend[
-    Table[{rni,\[Delta]VVMondExpAux[rni, gali]}, {rni, 0.05, 1, 0.05}], 
-    {0,0}
+colChi2Mond = First @ Flatten @ Position[headerMond, "Chi2"];
+colVChi2Mond = First @ Flatten @ Position[headerMond, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listMondChi2 = resultsMondData[[All, colChi2Mond]];
+listMondVChi2 = resultsMondData[[All, colVChi2Mond]];
+Echo[{Median @ listMondChi2, Median @ listMondVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listMondChi2, Total @listMondVChi2}, "Total {Chi2, Chi2Eff}: "];
+
+
+saveThisPlot = False;
+
+resultsMondGD = Get["../AuxiliaryData/MONDRAR-Fxa0-GY-05-06-GD-MAGMAtableResults.m"]; (*These results include 153 galaxies*)
+headerMondGD = First @ resultsMondGD;
+resultsMondDataGD = Drop[resultsMondGD, 1];
+colYDMondGD = First @ Flatten @ Position[headerMondGD, "YD"];
+coldf2MondGD = First @ Flatten @ Position[headerMondGD, "df2"];
+listYDMondGD = resultsMondDataGD[[All, colYDMond]] ;
+listdf2MondGD = resultsMondDataGD[[All, coldf2MondGD]] ;
+
+Histogram[
+  Log10@listYDMondGD, 
+  {0.05}, 
+  PlotRange -> {All, All}, 
+  Frame -> True, 
+  Axes -> False
+]
+
+Histogram[
+  Log10@listdf2MondGD, 
+  {0.05}, 
+  PlotRange -> {All, All}, 
+  Frame -> True, 
+  Axes -> False
+]
+
+savePreviousPlot["histogramMondGD.pdf"];
+
+
+Median[Log10@listYDMondGD]
+Mean[Log10@listYDMondGD]
+StandardDeviation[Log10@listYDMondGD]
+
+
+Median[Log10@listdf2MondGD]
+Mean[Log10@listdf2MondGD]
+StandardDeviation[Log10@listdf2MondGD]
+
+
+colChi2MondGD = First @ Flatten @ Position[headerMondGD, "Chi2"];
+colVChi2MondGD = First @ Flatten @ Position[headerMondGD, "V-Chi2"];(*Chi2 only due to velocity, no priors, standard chi2*)
+listMondGDChi2 = resultsMondDataGD[[All, colChi2MondGD]];
+listMondGDVChi2 = resultsMondDataGD[[All, colVChi2MondGD]];
+Echo[{Median @ listMondGDChi2, Median @ listMondGDVChi2}, "Median {Chi2, Chi2Eff}: "];
+Echo[{Total @ listMondGDChi2, Total @listMondGDVChi2}, "Total {Chi2, Chi2Eff}: "];
+
+
+Clear[X, \[Rho], \[Alpha],\[Gamma],\[Beta]]
+\[Alpha] = 2.94 - Log10[(10^(X + 2.33))^-1.08 + (10^(X + 2.33))^2.29];
+\[Beta] = 4.23 + 1.34 X + 0.26 X^2;
+\[Gamma] = - 0.06 + Log10[(10^(X + 2.56))^-0.68 + (10^(X+2.56))];
+\[Rho]DC14[rn_, rsn_, \[Rho]s_, X_] = \[Rho]s/((rn/rsn)^\[Gamma] (1+ (rn/rsn)^\[Alpha])^((\[Beta]-\[Gamma])/\[Alpha]));
+
+
+X100min = -410;
+X100max = -130;
+Xmin = X100min/100.;
+Xmax = X100max/100.;
+
+(*Clear[MDC14aux]; *) (*Uncomment this to recompute and export MDC14aux.*)
+If[DownValues@MDC14aux === {}, 
+  SetSharedFunction[MDC14aux];
+  ParallelTable[
+    MDC14aux[rn_, rsn_, \[Rho]s_, X100] = 4 \[Pi] Rmax^3 Integrate[
+      \[Rho]DC14[rnprime, rsn, \[Rho]s, X100 / 100] rnprime^2, {rnprime, 0, rn}, 
+      Assumptions -> {rn > 0, rsn > 0}
+    ], 
+    {X100, X100min, X100max, 1}
   ];
-  Table[
-    Interpolation[list2\[Delta]VVMondExpAux[gali]][rni], 
-  {gali, nG}
-  ]
+  DumpSave["../AuxiliaryData/MDC14aux.mx", MDC14aux]
 ];
 
-\[Delta]VVMondExp[rn_, gal_] :=  list1\[Delta]VVMondExp[rn][[gal]]
 
+Clear[MDC14, VVDC14, \[Delta]VDC14];
 
+iRound[x_] = IntegerPart[Round[x, 0.01] 100];
 
-a0 = 1;
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[
-    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
-    PlotStyle -> Directive[Opacity[0.1],Blue, Thick], PlotRange -> All
-  ]
-]
+MDC14[rn_, rsn_, \[Rho]s_, X_] := MDC14aux[rn, rsn, \[Rho]s, iRound[X]];
 
-Export["plotdeltaVmondExpa01.pdf", %];
+VVDC14[rn_, rsn_, \[Rho]s_, X_] := G/(rn Rmax) MDC14[rn, rsn, \[Rho]s, X] ;
 
-
-a0 = 10^-15;
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  Plot[
-    Evaluate[\[Delta]VVMondExp[rn, #]& /@ Range @ nG], {rn,0,1}, 
-    PlotStyle -> Directive[Opacity[0.1], Blue, Thick], PlotRange -> All
-  ]
-]
-
-Export["plotdeltaVmondExpa015.pdf", %];
-
-
-a0 = 1.2 10^-13;
-Clear @ list2\[Delta]VVmodel;
-list2\[Delta]VVmodel[gal_] := Table[{rn, \[Delta]VVMondExp[rn, gal]}, {rn, RandomReal[1,70]}];
-list2\[Delta]VVmodelAll = Flatten[DeleteCases[list2\[Delta]VVmodel /@ Range @ nG, {}], 1];
-distMondExp =distributionSilverman@list2\[Delta]VVmodelAll;
-
-list1LimitsSigmaMondExp = FindHDPDFValues[distMondExp, oneAndTwoSigma];
-
-
-
-plotMondCurves = Plot[
-  Evaluate[\[Delta]VVMondExp[rn, #] & /@ Range@ nG], {rn, 0, 1}, 
-  PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
+\[Delta]VDC14[rn_, rsn_, X_] := \[Delta]VDC14[rn, rsn, X] = Simplify[
+  VVDC14[rn, rsn, \[Rho]s, X]/VVDC14[1, rsn, \[Rho]s, X],
+  Assumptions -> {0 <= rn <= 1,  rsn > 0, Rmax > 0}
 ];
 
-plotMondContours = ContourPlot[
+
+
+saveThisPlot = False;
+
+Clear[plotDC14GrayRed1];
+plotDC14GrayRed1[X_] := 
+Show[
   {
-    PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[1]], 
-    PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 1.5},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
+    Plot[
+      {
+        \[Delta]VDC14[rn,1,X], 
+        \[Delta]VDC14[rn,0.1,X]
+      },
+      {rn, 0, 1},
+      PlotRange -> All,
+      PlotStyle -> {{Opacity[0.5], Thickness[0.005], ColorData[ "SolarColors"][(X - Xmin)/(Xmax - Xmin)]}}
+    ]
+  }
 ];
 
-Show[
-  plotBackground[1.5],
-  plotSigmaRegionsRARNoBulge,
-  plotMondCurves,
-  plotMondContours
+Show[{plotBackground[1.5],
+    plotSigmaRegionsRAR,Table[plotDC14GrayRed1[X], {X, Xmin, Xmax, 0.05}]}]
+    
+savePreviousPlot["plotDC14SunColor.pdf"];
+    
+
+
+Clear[chi2Upper, chi2Lower];
+chi2Upper[rsn_?NumberQ, X_, n\[Sigma]_]:= chi2Upper[rsn, X, n\[Sigma]] =  NIntegrate[
+  (upperBound[n\[Sigma]][rn] - \[Delta]VDC14[rn, rsn, X])^2,
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> Infinity, 
+  MaxRecursion -> 10
+];
+
+chi2Lower[rsn_?NumberQ, X_, n\[Sigma]_] := chi2Lower[rsn, X, n\[Sigma]] = NIntegrate[
+  (lowerBound[n\[Sigma]][rn]- \[Delta]VDC14[rn,rsn, X])^2, 
+  {rn, rnStart, rnEnd}, 
+  Method-> {Automatic, "SymbolicProcessing" -> 0},
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> Infinity, 
+  MaxRecursion -> 10
+];
+
+
+(* SPECIFIC DEFINITIONS *)
+
+rnStart = 0.2;
+rnEnd = 0.9;
+
+lowerBound[1] = list1InterpCurvesRAR[[1]];
+upperBound[1] = list1InterpCurvesRAR[[2]];
+lowerBound[2] = list1InterpCurvesRAR[[3]];
+upperBound[2] = list1InterpCurvesRAR[[4]];
+
+
+(* EXECUTION *)
+
+Echo["Performing the optimization."];
+
+ClearAll[rsnUpper, rsnLower];
+rsnUpper[2] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 2], 10^3>rsn>0.01, Xmin < X < Xmax}, {rsn, X}, 
+  MaxIterations -> 500, 
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> \[Infinity]
+][[2]];
+rsnUpper[1] :=  {rsn, X} /. NMinimize[{chi2Upper[rsn, X, 1], 10^3>rsn>0.01, Xmin < X < Xmax}, {rsn, X},
+  MaxIterations -> 500, 
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> \[Infinity]
+][[2]];
+rsnLower[2] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 2], 10^3>rsn>0.01, Xmin < X < Xmax}, {rsn, X},
+  MaxIterations -> 500, 
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> \[Infinity]
+][[2]];
+rsnLower[1] :=  {rsn, X} /. NMinimize[{chi2Lower[rsn, X, 1], 10^3>rsn>0.01, Xmin < X < Xmax}, {rsn, X},
+  MaxIterations -> 500, 
+  PrecisionGoal -> 4, 
+  AccuracyGoal -> \[Infinity]
+][[2]];
+
+{rsnUpperR[2], rsnUpperR[1], rsnLowerR[2], rsnLowerR[1]} = Parallelize[
+  {rsnUpper[2], rsnUpper[1], rsnLower[2], rsnLower[1]}
+];
+
+Echo[{rsnUpperR[1], rsnLowerR[1]}, "{rsn, X} 1\[Sigma] bounds: "];
+Echo[{rsnUpperR[2], rsnLowerR[2]}, "{rsn, X} 2\[Sigma] bounds: "];
+
+
+saveThisPlot = False;
+plotDC14GlobalBestFit = Show[
+  {
+    plotBurkertGrayRed /. {Dashed -> Dashing[.01], Black -> Red},
+    plotNFWGrayRed /. {Dashed-> DotDashed, Black -> Orange},
+    Plot[
+      {
+        \[Delta]VDC14[rn, Sequence@@ rsnUpperR @ 2],
+        \[Delta]VDC14[rn, Sequence@@ rsnUpperR @ 1],
+        \[Delta]VDC14[rn, Sequence@@ rsnLowerR @ 2],
+        \[Delta]VDC14[rn, Sequence@@ rsnLowerR @ 1]
+      },
+      {rn, 0, 1},
+      PlotStyle -> {
+        {Darker[Blue, 0.2], Thickness @ 0.003},
+        {Lighter[Blue, 0.5], Thickness @ 0.003}
+      },
+      Filling -> {
+        1 -> {{3}, Directive[Lighter[Blue, 0.5], Opacity @ 0.2]},
+        2 -> {{4}, Directive[Lighter[Blue, 0.2], Opacity @ 0.2]}
+      },
+      PlotRange -> All
+    ]
+  }
+];
+
+Echo["plotDC14GlobalBestFit:"];
+plotDC14GlobalBestFit
+savePreviousPlot["plotDC14GlobalBestFit.pdf"];
+
+
+saveThisPlot = False;
+
+min = \[Delta]VDC14[0.5, 1.91, -1.6];
+max = \[Delta]VDC14[0.5, 0.24, -3.76];
+
+plotRegionDC14low = RegionPlot[
+  min > \[Delta]VDC14[0.5, 10^logrsn, X], {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+  PlotPoints-> 100, 
+  MaxRecursion->4, 
+  Evaluate[generalOptions], 
+  BoundaryStyle->None, 
+  PlotStyle-> ColorData["SolarColors"][0.05]
+];
+
+plotRegionDC14mid = RegionPlot[
+  min < \[Delta]VDC14[0.5, 10^logrsn, X] < max, {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+  PlotPoints-> 100, 
+  MaxRecursion->4, 
+  Evaluate[generalOptions], 
+  BoundaryStyle->None, 
+  PlotStyle-> ColorData["SolarColors"][0.5]
+];
+
+plotRegionDC14high = RegionPlot[
+  \[Delta]VDC14[0.5, 10^logrsn, X] > max, {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+  PlotPoints-> 100, 
+  MaxRecursion->4, 
+  Evaluate[generalOptions], 
+  BoundaryStyle->None, 
+  PlotStyle-> ColorData["SolarColors"][0.95]
+];
+
+Show[plotRegionDC14high, plotRegionDC14mid, plotRegionDC14low, AspectRatio -> 1/GoldenRatio]
+
+savePreviousPlot["plotRegionsDC14.pdf"];
+
+
+efficiencyNAV[\[Delta]VDC14[#,Sequence@@ rsnLowerR@ 1] &, \[Delta]VDC14[#, Sequence@@rsnUpperR@ 1] &, 1]
+efficiencyNAV[\[Delta]VDC14[#, Sequence@@rsnLowerR@ 2] &, \[Delta]VDC14[#, Sequence@@rsnUpperR@ 2] &, 2]
+Mean[{%, %%}] 
+
+
+
+saveThisPlot = False;
+
+SmoothHistogram[{
+  Log10@listBurkertVChi2, 
+  Log10@listArctanVChi2, 
+  Log10@listNFWVChi2, 
+  Log10@listArctanHalfVChi2,
+  Log10@listMondGDVChi2,
+  Log10@listMondVChi2
+},
+  0.000001, "CDF", 
+  PlotRange->{{-2, 4}, {-0.05, 1.05}}, Frame -> True, Axes->False,
+  PlotLegends->Placed[{"Burkert", "\!\(\*SubscriptBox[\(Arctan\), \(\[Alpha] = 1\)]\)", "NFW", "\!\(\*SubscriptBox[\(Arctan\), \(\[Alpha] = 1/2\)]\)", "\!\(\*SubscriptBox[\(MOND\), \(\(dist\)\(.\)\)]\)", "MOND"}, {Left, Center}],   
+  PlotStyle-> {{Thickness[0.01], Opacity[0.6]}},
+  PlotTheme->{"Scientific", "Frame", "BoldColor"},
+  AspectRatio-> 1/GoldenRatio,
+  Evaluate[generalOptions]
 ]
 
-Export["plotdeltaVmondExpPrincipal.pdf", %];
-
-
- (*phiDisk and phiGas come from Binney & Tremaine 2nd Ed., eq.(2.164a)*)
-Clear[phiExpDisk, phiExpGal, phiExpGal, \[CapitalDelta]VVRGGR, \[Delta]VVRGGR]
-
-phiExpDisk[R_,logSigma0_,h_] = Block[{y, logSigma0, h, R}, 
-  y = R/(2 h);
-  - 4 \[Pi] G0 10^logSigma0 R (BesselI[0,y] BesselK[1,y] - BesselI[1,y] BesselK[0,y])
-];
-
-phiExpGal[R_, logSigma0_, h_, logSigmaGas0_, hGas_] = 0.5 phiExpDisk[R, logSigma0, h] + phiExpDisk[R, logSigmaGas0, hGas];
-
-phiExpGal[R_, gal_Integer] := phiExpGal[R, gal] = phiExpGal[R, Sequence @@ dataGal[gal]];
-
-\[CapitalDelta]VVRGGR[R_, gal_] := - VVInfty VVbarExp[R, gal] / phiExpGal[R, gal];
-
-\[Delta]VVRGGRAux[rn_, gal_Integer] := \[Delta]VVRGGRAux[rn, gal] =  \[CapitalDelta]VVRGGR[rn rMax[gal], gal] / \[CapitalDelta]VVRGGR[rMax[gal], gal];
-
-(*To speed up the plots, it is relevant to define \[Delta]VVMondExp from a list of interpolated functions (list1\[Delta]VVMondExp)*)
-l1\[Delta]VVRGGR[rni_] = Block[
-  {l2\[Delta]VVRGGRAux},
-  l2\[Delta]VVRGGRAux[gali_] := Prepend[
-    Table[{rni, \[Delta]VVRGGRAux[rni, gali]}, {rni, 0.05, 1, 0.05}], 
-    {0,0}
-  ];
-  Table[
-    Interpolation[l2\[Delta]VVRGGRAux[gali]][rni], 
-  {gali, nG}
-  ]
-];
-
-\[Delta]VVRGGR[rn_, gal_] :=  l1\[Delta]VVRGGR[rn][[gal]]
-
-
-l2\[Delta]VVRGGRdiscrete[gal_] := Table[{rn, \[Delta]VVRGGR[rn, gal]}, {rn, RandomReal[1,200]}];
-l2\[Delta]VVRGGRdiscreteAll = Flatten[l2\[Delta]VVRGGRdiscrete /@ Range @ nG, 1];
-distRGGR =distributionSilverman @ l2\[Delta]VVRGGRdiscreteAll;
-
-l1LimitsSigmaRGGR = FindHDPDFValues[distRGGR, oneAndTwoSigma];
-
-
-
-plotRGGRCurves = Plot[
-  Evaluate[\[Delta]VVRGGR[rn, #] & /@ Range@ nG], {rn, 0, 1}, 
-  PlotRange -> All, PlotStyle -> Directive[Opacity[0.1],Blue, Thick]
-];
-
-plotRGGRContours = ContourPlot[
-  {
-    PDF[distRGGR, {x,y}] == l1LimitsSigmaRGGR[[1]], 
-    PDF[distRGGR, {x,y}] == l1LimitsSigmaRGGR[[2]]
-  }, 
-  {x,0,1}, {y,-0.5, 2.0},  
-  ContourStyle -> {Directive[Purple, Dashed, Thick], Directive[Lighter@Purple, Dashed]}
-];
-
-Show[
-  plotBackground[2.0],
-  plotSigmaRegionsRARNoBulge,
-  plotRGGRCurves,
-  plotRGGRContours
-]
-
-Export["plotdeltaVRGGR.pdf", %];
-
-
-\[Delta]Vobs1\[Sigma]L[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[1]][xn]; (*L stands for lower limit*)
-\[Delta]Vobs1\[Sigma]U[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[2]][xn]; (*U stands for upper limit*)
-\[Delta]Vobs2\[Sigma]L[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[3]][xn];
-\[Delta]Vobs2\[Sigma]U[xn_] =  list1InterpSigmaCurves[plotBlueRAR][[4]][xn];
-
-positivePart[x_] := HeavisideTheta[x] x;
-
-Clear[areaObs];
-areaObs[numberOfSigmas_] := Which[
-  numberOfSigmas == 1, NIntegrate[\[Delta]Vobs1\[Sigma]U[xn] - \[Delta]Vobs1\[Sigma]L[xn], {xn, 0.2, 0.9}],
-  numberOfSigmas == 2, NIntegrate[\[Delta]Vobs2\[Sigma]U[xn] - \[Delta]Vobs2\[Sigma]L[xn], {xn, 0.2, 0.9}],
-  True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
-];
-  
-efficiencyNAV[ModelSigmaL_, ModelSigmaU_, numberOfSigmas_Integer] := Block[ (*There is another efficiencyNAV function with different number of arguments.*)
-  {
-    areaIntersection,
-    areaModelOut,
-    xn, (*equivalent to rn, used to avoid definition clash*)
-    \[Delta]VobsL,
-    \[Delta]VobsU
-  },
-  
-  Which[
-    numberOfSigmas == 1, \[Delta]VobsL = \[Delta]Vobs1\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs1\[Sigma]U,
-    numberOfSigmas == 2, \[Delta]VobsL = \[Delta]Vobs2\[Sigma]L; \[Delta]VobsU = \[Delta]Vobs2\[Sigma]U,
-    True, Echo["Wrong number of sigmas specification. Aborting."]; Abort[]
-  ];
-  
-  areaIntersection = NIntegrate[
-    Min[\[Delta]VobsU[xn], ModelSigmaU[xn]] - Max[\[Delta]VobsL[xn], ModelSigmaL[xn]],
-    {xn, 0.2, 0.9}
-  ] / areaObs[numberOfSigmas];
-  
-  areaModelOut = NIntegrate[
-    positivePart[ModelSigmaU[xn] - \[Delta]VobsU[xn]] + positivePart[\[Delta]VobsL[xn] - ModelSigmaL[xn]],
-    {xn, 0.2, 0.9}
-  ]/ areaObs[numberOfSigmas];
-  
-  {areaIntersection - areaModelOut, areaIntersection, areaModelOut}
-];
-
-Clear @ efficiencyNAVtotal; (*There is another efficiencyNAVtotal function with different number of arguments.*)
-efficiencyNAVtotal[ModelSigmaL1_, ModelSigmaU1_, ModelSigmaL2_, ModelSigmaU2_] := (
-  efficiencyNAV[ModelSigmaL1, ModelSigmaU1, 1] + 
-  efficiencyNAV[ModelSigmaL2, ModelSigmaU2, 2]
-) / 2;
-
-
-(* ContourPlots with the limiting sigma regions WITHOUT BULGE *)
-Clear[plotObsSigma, plotRGGRSigma, plotMONDRawSigma, plotPalatiniSigma, plotMONDExpSigma];
-plotObsSigma[n_] := plotObsSigma[n] = ContourPlot[
-  PDF[distRARRotNoBulge, {x,y}] == list1LimitsNoBulge[[n]], {x, 0, 1}, {y, -0.5, 2},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-plotPalatiniSigma[n_] := plotPalatiniSigma[n] = ContourPlot[
-  PDF[distPalatini, {x,y}] == list1LimitsSigmaPalatini[[n]], {x, 0, 1}, {y, -1, 5},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-plotMONDRawSigma[n_] := plotMONDRawSigma[n] = ContourPlot[
-  PDF[distMondRaw, {x,y}] == list1LimitsSigmaMondRaw[[n]], {x, 0, 1}, {y, -0.5, 2},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-plotMONDExpSigma[n_] := plotMONDExpSigma[n] = ContourPlot[
-  PDF[distMondExp, {x,y}] == list1LimitsSigmaMondExp[[n]], {x, 0, 1}, {y, -0.5, 2},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-plotRGGRSigma[n_] := plotRGGRSigma[n] = ContourPlot[
-  PDF[distRGGR, {x,y}] == l1LimitsSigmaRGGR[[n]], {x, 0, 1}, {y, -0.5, 2.5},
-  PerformanceGoal -> "Quality", PlotPoints -> 40, MaxRecursion -> 2
-];
-
-(* General purpose useful function *)
-positivePart[x_] := HeavisideTheta[x] x;
-
-(*List of points, instead of ContourPlots, for the models whose limiting \[Sigma] regions come from functions*)
-Clear[pointsBurkertSigma];
-pointsBurkertSigma[n_] := pointsBurkertSigma[n] = {
-  Table[{rn, \[Delta]Vbrkt[rn, rcnLower @ n]}, {rn, 0.01, 1, 0.001}],
-  Table[{rn, \[Delta]Vbrkt[rn, rcnUpper @ n]}, {rn, 0.01, 1, 0.001}]
-};
-
-(* Functions to compute the NAV Efficiency *)
-listExtractPoints[plot_] := Cases[
-  Normal @ FullForm @ First @ plot,
-  Line[pts_] :> pts,
-  Infinity
-];
-
-
-Clear[polygonPrepare];
-polygonPrepare[listExtractPoints_] := Block[
-  {pointsAux, transformation},
-  If[Length[listExtractPoints] == 2, Null, Echo["Data must be a list with two components, one for each curve."]; Abort[]];
-  If[
-    Round[listExtractPoints[[1,1,1]], 1] == Round[listExtractPoints[[2,1,1]], 1], (*Check if both parts of the data start either close to 1 or to 0.*)
-    transformation = Reverse, (*If both parts start together, one will need to be reversed*)
-    transformation = Identity
-  ];
-  pointsAux = Join[First @ listExtractPoints, transformation @ Last @ listExtractPoints ];
-  Cases[pointsAux, {x_,y_} /; 0.2 < x < 0.9]
-];
-
-Clear[areaSigma];
-areaSigma[plot_Graphics] := Area @ Polygon @ polygonPrepare @ listExtractPoints @ plot;
-
-areaSigma[points_List] := Area @ Polygon @ polygonPrepare @ points ;
-
-(*Running the plots definitions*)
-Echo["Running the plots..."]; 
-EchoTiming @ Table[{plotRGGRSigma[n], plotMONDExpSigma[n], plotMONDRawSigma[n], plotPalatiniSigma[n], plotObsSigma[n]}, {n,1,2}];
-
-  
-
-
-Clear[regionIntersection];
-regionIntersection[plotModelSigma_, nSigma_] := RegionIntersection[
-  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
-  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
-];
-
-Clear[regionDifference];
-regionDifference[plotModelSigma_, nSigma_] := RegionDifference[
-  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotModelSigma, 
-  Region @ Polygon @ polygonPrepare @ listExtractPoints @ plotObsSigma[nSigma]
-];
-
-(* Execution *)
-
-CloseKernels[];
-LaunchKernels[];
-
-DistributeDefinitions[regionIntersection, regionDifference, plotMONDRawSigma[1], plotMONDExpSigma[1], plotRGGRSigma[1], plotPalatiniSigma[1], plotMONDRawSigma[2], plotMONDExpSigma[2], plotRGGRSigma[2], plotPalatiniSigma[2]];
-
-listPlotsSubmit1 = {plotMONDRawSigma, plotMONDExpSigma, plotRGGRSigma, plotPalatiniSigma};
-listPlotsSubmit2 = {plotMONDRawSigma, plotMONDExpSigma, plotRGGRSigma};
-
-submit = Flatten[{
-  ParallelSubmit[regionIntersection[#[1], 1]] & /@ listPlotsSubmit1, 
-  ParallelSubmit[regionIntersection[#[2], 2]] & /@ listPlotsSubmit2, 
-  ParallelSubmit[regionDifference[#[1], 1]] & /@ listPlotsSubmit1, 
-  ParallelSubmit[regionDifference[#[2], 2]] & /@ listPlotsSubmit2 
-}]
-
-Echo["Computing regions intersections and differences... It may take a few minutes."];
-EchoTiming[answer = WaitAll[submit]];
-
-listModels1 = {MONDRaw, MONDExp, RGGR, Palatini};
-listModels2 = {MONDRaw, MONDExp, RGGR};
-
-Evaluate @ Flatten[{
-  rI[#, 1] & /@ listModels1,
-  rI[#, 2] & /@ listModels2,
-  rD[#, 1] & /@ listModels1,
-  rD[#, 2] & /@ listModels2
-}] = answer;
-
-Clear[efficiencyNAV, efficiencyNAVtotal];
-efficiencyNAV[model_, nSigma_] := (Area @ rI[model, nSigma] - Area @ rD[model, nSigma]) / areaSigma @ plotObsSigma[nSigma];
-efficiencyNAVtotal[model_] := (efficiencyNAV[model, 1] + efficiencyNAV[model, 2])/2;
+savePreviousPlot["plotCDFcomparison.pdf"];
 
 
 
