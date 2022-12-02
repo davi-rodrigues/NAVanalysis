@@ -1074,22 +1074,34 @@ plotDC14GlobalBestFit
 savePreviousPlot["plotDC14GlobalBestFit.pdf"];
 
 
-saveThisPlot = False;
+saveThisPlot = True;
 
+minNFW = 0.5;
 min = \[Delta]VDC14[0.5, 1.91, -1.6];
 max = \[Delta]VDC14[0.5, 0.24, -3.76];
+max2 = \[Delta]VDC14[0.5, 0.14, -3.88];
 
-plotRegionDC14low = RegionPlot[
-  min > \[Delta]VDC14[0.5, 10^logrsn, X], {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+
+plotRegionDC14lowNFW = RegionPlot[
+  \[Delta]VDC14[0.5, 10^logrsn, X] < minNFW, {logrsn, -1.2, 1.2}, {X, -4.1, -1.3}, 
   PlotPoints-> 100, 
   MaxRecursion->4, 
   Evaluate[generalOptions], 
   BoundaryStyle->None, 
-  PlotStyle-> ColorData["SolarColors"][0.05]
+  PlotStyle-> ColorData["SolarColors"][0.0]
+];
+
+plotRegionDC14low = RegionPlot[
+  min > \[Delta]VDC14[0.5, 10^logrsn, X] > minNFW, {logrsn, -1.2, 1.2}, {X, -4.1, -1.3}, 
+  PlotPoints-> 100, 
+  MaxRecursion->4, 
+  Evaluate[generalOptions], 
+  BoundaryStyle->None, 
+  PlotStyle-> White
 ];
 
 plotRegionDC14mid = RegionPlot[
-  min < \[Delta]VDC14[0.5, 10^logrsn, X] < max, {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+  min < \[Delta]VDC14[0.5, 10^logrsn, X] < max, {logrsn, -1.2, 1.2}, {X, -4.1, -1.3}, 
   PlotPoints-> 100, 
   MaxRecursion->4, 
   Evaluate[generalOptions], 
@@ -1098,15 +1110,31 @@ plotRegionDC14mid = RegionPlot[
 ];
 
 plotRegionDC14high = RegionPlot[
-  \[Delta]VDC14[0.5, 10^logrsn, X] > max, {logrsn, -1, 2}, {X, -4.1, -1.3}, 
+  max2 > \[Delta]VDC14[0.5, 10^logrsn, X] > max, {logrsn, -1.2, 1.2}, {X, -4.1, -1.3}, 
   PlotPoints-> 100, 
   MaxRecursion->4, 
   Evaluate[generalOptions], 
   BoundaryStyle->None, 
-  PlotStyle-> ColorData["SolarColors"][0.95]
+  PlotStyle-> ColorData["SolarColors"][0.99]
 ];
 
-Show[plotRegionDC14high, plotRegionDC14mid, plotRegionDC14low, AspectRatio -> 1/GoldenRatio]
+plotRegionDC14high2 = RegionPlot[
+  \[Delta]VDC14[0.5, 10^logrsn, X] > max2, {logrsn, -1.2, 1.2}, {X, -4.1, -1.3}, 
+  PlotPoints-> 100, 
+  MaxRecursion->4, 
+  Evaluate[generalOptions], 
+  BoundaryStyle->None, 
+  PlotStyle-> White
+];
+
+Show[
+  plotRegionDC14high, 
+  plotRegionDC14mid, 
+  plotRegionDC14low, 
+  plotRegionDC14high2, 
+  plotRegionDC14lowNFW, 
+  AspectRatio -> 1/GoldenRatio
+]
 
 savePreviousPlot["plotRegionsDC14.pdf"];
 
