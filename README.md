@@ -1,5 +1,5 @@
 # NAVanalysis
-Normalized Additional Velocity analysis (Release 2.0)
+Normalized Additional Velocity analysis (Release 2.0.1)
 
 [![DOI](https://zenodo.org/badge/469982786.svg)](https://zenodo.org/badge/latestdoi/469982786)
 
