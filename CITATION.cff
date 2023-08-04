@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+title: NAVanalysis
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Davi
+    family-names: C. Rodrigues
+    orcid: 'https://orcid.org/0000-0003-1683-5443'
+  - given-names: Alejandro
+    family-names: Hernandez-Arboleda
+    orcid: 'https://orcid.org/0000-0003-2173-8779'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.6797849
+    description: Zenodo
+  - type: url
+    value: 'http://arxiv.org/abs/2204.03762'
+    description: arXiv
+  - type: doi
+    value: 10.1016/j.dark.2023.101230
+    description: Physics of the Dark Universe (2023)
+repository-code: 'https://github.com/davi-rodrigues/NAVanalysis'
+abstract: >-
+  Normalized Additional Velocity analysis. NAVanalysis is a
+  code for studying the non-Baryonic or non-Newtonian
+  contributions to galaxy rotation curves straight from a
+  given data sample, instead of first performing individual
+  galaxy fits. It is a fast and complementary approach to
+  standard individual fits. It focuses on sample results of
+  the dark-matter-profile (or modified gravity) radial
+  dependence.
+license: MIT
+version: v2.0.1
+date-released: '2023-08-04'
