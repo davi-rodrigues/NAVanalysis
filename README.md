@@ -13,10 +13,13 @@ See also [[2306.04475]](https://arxiv.org/abs/2306.04475) for a recent applicati
 
 ## Examples
 ![NAVplane](readmeImages/NAVobsPlane.png)
+
 **Fig. 1:** The observational NAV plane as inferred from 153 galaxies from the SPARC dataset. The horizontal axis is the normalized radius, and the vertical the normalized additional  (squared) velocity. The gray curves show the highest density regions. Each transparent blue disk is a data point from a galaxy. The dark blue disk with coordinates (1,1) is dark because all the galaxies contribute with this point.
 
 ![NFWBurkertExample](readmeImages/ExampleNFWBurkert.png)
+
 **Fig.2:** NAV analysis for NFW and Burkert halos. Above one also finds a comparison with individual galaxy fits results. See [the main paper](https://doi.org/10.1016/j.dark.2023.101230) for further details.
+
 ## Files and folders explanation
 
 * `NAVbaseCode.wl` is a package written in Wolfram Language that contains the core definitions for the execution of `NAVanalysis`.
